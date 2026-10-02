@@ -21,14 +21,21 @@ Scripts are already in `Assets/Scripts/`:
 Required for `ws://`. The lens becomes unpublishable, which is the accepted
 trade for v1 — see [SETUP.md §3.2](SETUP.md).
 
-## 2. Asset modules
+## 2. Asset modules — nothing to do
 
-In the Asset Browser, **+ → Add Module** for both:
+An earlier version of this document asked you to add **Internet Module** and
+**Remote Media Module** assets by hand. That is no longer necessary.
+`HoloDisplays` obtains both in code with
+`require("LensStudio:InternetModule")` and
+`require("LensStudio:RemoteMediaModule")`, the same way SIK and UI Kit get
+`GestureModule` and `TextInputModule`.
 
-- **Internet Module**
-- **Remote Media Module**
+The two inspector inputs still exist and still take priority. They are an
+override for a project that wants a specific instance, and an escape hatch if a
+require name is ever wrong. **Leave them empty.**
 
-Leave the default names.
+From Lens Studio 5.9 the WebSocket APIs live on `InternetModule`, so an older
+tutorial telling you to use a global `WebSocket` is out of date.
 
 ## 3. The panel prefab
 
@@ -79,8 +86,8 @@ Build this once; the controller instantiates one per display.
    | --- | --- |
    | Host Ip | **your laptop's LAN IP**, shown in large text in the host window |
    | Host Port | `8880`, or whatever the host says it bound |
-   | Internet Module | the Internet Module asset |
-   | Remote Media Module | the Remote Media Module asset |
+   | Internet Module | **leave empty** — obtained in code (§2) |
+   | Remote Media Module | **leave empty** — obtained in code (§2) |
    | Camera Object | your scene's Camera (optional; it searches if empty) |
    | Status Text | a Text object somewhere visible (optional but useful) |
    | Panel Prefab | the `Panel` prefab from step 3 |
@@ -167,5 +174,6 @@ That is the whole fix. Everything else about the layout is independent of it.
 | Panels appear but stay black | Host has no display ticked, or all panels are `off` — look at one |
 | Panels never drop to `off` | Camera Object not set and no camera found; check the log |
 | Panels are edge-on or facing away | See the note below — one-line fix in `placeOnArc` |
+| Log says "no InternetModule" / "no RemoteMediaModule" | The require name is wrong on your Lens Studio version. Add the module in the Asset Browser and set the matching inspector input — that override exists for this |
 | Resize does nothing | That mode is not in VDD's resolution list ([SETUP.md §1.5](SETUP.md)) |
 | Memory grows over a long session | Check that old textures are being released; see `HoloPanel.setTexture` |
