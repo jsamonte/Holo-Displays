@@ -22,8 +22,15 @@ export class HoloDisplays extends BaseScriptComponent {
   @hint("Host port. 8880 unless the host says it fell forward to another.")
   hostPort: number = 8880
 
-  @input internetModule!: InternetModule
-  @input remoteMediaModule!: RemoteMediaModule
+  @input
+  @hint("Optional. Left empty, the module is obtained in code.")
+  @allowUndefined
+  internetModule!: InternetModule
+
+  @input
+  @hint("Optional. Left empty, the module is obtained in code.")
+  @allowUndefined
+  remoteMediaModule!: RemoteMediaModule
 
   @input
   @hint("Camera the gaze test uses. Leave empty to find the main camera.")
@@ -75,6 +82,21 @@ export class HoloDisplays extends BaseScriptComponent {
 
   // ---- internals ---------------------------------------------------------
 
+  /**
+   * The modules actually used, after resolution.
+   *
+   * Preferring `require("LensStudio:…")` over an inspector input means the two
+   * module assets never have to be created and wired by hand, which is two
+   * fewer setup steps and two fewer things to get wrong. SIK and UI Kit obtain
+   * GestureModule, TextInputModule and others the same way.
+   *
+   * The inputs are kept as an override in case a project wants a specific
+   * instance, and because if the require name is ever wrong, wiring the input
+   * is the escape hatch rather than a dead end.
+   */
+  private internet!: InternetModule
+  private remoteMedia!: RemoteMediaModule
+
   private connection: HoloConnection | null = null
   private panels: Map<number, SceneObject> = new Map()
   private components: Map<number, HoloPanel> = new Map()
@@ -88,6 +110,8 @@ export class HoloDisplays extends BaseScriptComponent {
   }
 
   private start(): void {
+    if (!this.resolveModules()) return
+
     this.camera = this.resolveCamera()
     if (this.camera === null) {
       print("HoloDisplays: no camera found; gaze tiers will not work")
@@ -97,7 +121,7 @@ export class HoloDisplays extends BaseScriptComponent {
     print(`HoloDisplays: connecting to ${url}`)
 
     this.connection = new HoloConnection(
-      this.internetModule,
+      this.internet,
       url,
       {
         onStatus: (text, connected) => this.setStatus(text, connected),
@@ -217,11 +241,11 @@ export class HoloDisplays extends BaseScriptComponent {
       const bytes = await blob.bytes()
       resource = dynamic.createWithBuffer(bytes)
     } else {
-      resource = (this.internetModule as any).makeResourceFromBlob(blob)
+      resource = (this.internet as any).makeResourceFromBlob(blob)
     }
 
     return new Promise<Texture>((resolve, reject) => {
-      this.remoteMediaModule.loadResourceAsImageTexture(
+      this.remoteMedia.loadResourceAsImageTexture(
         resource,
         (texture: Texture) => resolve(texture),
         (error: string) => reject(error)
@@ -335,6 +359,39 @@ export class HoloDisplays extends BaseScriptComponent {
   }
 
   // ---- helpers -----------------------------------------------------------
+
+  /**
+   * Resolves the two modules, preferring the inspector input and falling back
+   * to requiring them by name. Returns false, having said why, if either is
+   * missing — better a clear line in the log than a null dereference three
+   * frames later.
+   */
+  private resolveModules(): boolean {
+    this.internet = this.internetModule ?? HoloDisplays.tryRequire("InternetModule")
+    this.remoteMedia = this.remoteMediaModule ?? HoloDisplays.tryRequire("RemoteMediaModule")
+
+    if (this.internet === null || this.internet === undefined) {
+      this.setStatus("no InternetModule", false)
+      print("HoloDisplays: could not obtain an InternetModule. Add one in the Asset Browser and set it on this component.")
+      return false
+    }
+
+    if (this.remoteMedia === null || this.remoteMedia === undefined) {
+      this.setStatus("no RemoteMediaModule", false)
+      print("HoloDisplays: could not obtain a RemoteMediaModule. Add one in the Asset Browser and set it on this component.")
+      return false
+    }
+
+    return true
+  }
+
+  private static tryRequire(name: string): any {
+    try {
+      return require(`LensStudio:${name}`)
+    } catch (e) {
+      return null
+    }
+  }
 
   private resolveCamera(): Camera | null {
     if (this.cameraObject !== null && this.cameraObject !== undefined) {

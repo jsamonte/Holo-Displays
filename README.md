@@ -33,7 +33,8 @@ Everything else follows the spec.
 1. [docs/SETUP.md](docs/SETUP.md) — install and configure VDD, Godot .NET, Lens Studio.
 2. [docs/PROTOCOL.md](docs/PROTOCOL.md) — the WebSocket protocol between host and lens.
 3. [docs/LENS_SETUP.md](docs/LENS_SETUP.md) — wiring the lens scene, step by step.
-4. [SPEC.md](SPEC.md) — the full build spec and milestone list.
+4. [docs/BUILDING.md](docs/BUILDING.md) — exporting a standalone host `.exe`.
+5. [SPEC.md](SPEC.md) — the full build spec and milestone list.
 
 ## This machine
 
