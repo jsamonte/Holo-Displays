@@ -194,6 +194,32 @@ driver signing.
 **3. Run the host on an x64 Windows PC.** VDD installs there without ceremony,
 and the glasses connect over the LAN to whichever machine runs the host.
 
+### 1.3b-note Writing our own driver does not help
+
+The obvious thought is to skip VDD and write a virtual display driver for this
+project. It does not get us anywhere, for a reason that has nothing to do with
+code quality:
+
+**Windows on ARM64 refuses to load any driver that Microsoft has not signed.**
+That rule is about the signature on the driver package, not about who wrote it
+or how good it is. A driver written here would start out *unsigned*, which is
+strictly worse than VDD's position — VDD at least has a real commercial
+certificate. Ours would need the same EV certificate and the same Partner
+Center attestation run, at the same ~$300/year, before it could install on this
+laptop.
+
+Nor can the driver be avoided altogether. Windows only reports a monitor that a
+display adapter driver created; there is no user-mode API to add one. A
+borderless window pretending to be a screen is not a monitor — the cursor will
+not travel into it, windows will not maximise to it, and the taskbar will not
+follow. That is mirroring-shaped, and this project is explicitly about extended
+displays.
+
+So the cost of a from-scratch driver is several weeks of UMDF/IddCx work to
+arrive at exactly the same wall, having reimplemented something MIT-licensed
+that already works. If the EV certificate is ever bought, spend it
+attestation-signing **VDD**, not a rewrite.
+
 Only if none of those suit you is §1.3c worth reading.
 
 ### 1.3c Turning off Secure Boot — the last resort
