@@ -63,11 +63,26 @@ What it rules out, and what the host therefore does not do:
   [docs/SETUP.md §1.6](docs/SETUP.md).
 - `tools/` is a development aid, not part of what gets shared.
 
-**The one thing that cannot ship inside the project is VDD itself.** It is a
-signed display driver and has to be installed on the target machine. So the host
-treats it as a dependency it detects and explains rather than assumes: on startup
-it pings the pipe, and if nothing answers it says so and points at the install
-steps instead of failing with an empty monitor list.
+**The one thing that cannot ship inside the project is VDD itself**, because it
+is a display driver. So the host provisions it instead: on startup it pings the
+driver's pipe, and if nothing answers it offers an **Install driver…** button.
+
+That button is deliberately not quiet about what it does. It shows the whole
+plan first, uses a copy already on the machine or fetches one from the
+[upstream project](https://github.com/VirtualDrivers/Virtual-Display-Driver)
+(MIT), raises a normal UAC prompt, and runs the install in a **visible** console
+window — writing the script to disk in plain text first, so it can be read
+before approving. Every step lands in the app's log, and **Uninstall driver**
+reverses it. An app that installs a display driver behind a hidden prompt is
+shaped exactly like malware, and both the user and their antivirus deserve to
+see the work.
+
+**ARM64 is the exception.** Windows on ARM only accepts WHQL/Store-signed
+drivers, and VDD carries a commercial certificate, so it is refused
+(`0x800B0109`) however it is packaged. On an ARM64 machine the button does not
+appear and the app explains why instead. See
+[docs/SETUP.md §1.3a](docs/SETUP.md) for what getting past that would cost, and
+why running the host on an x64 PC is usually the better answer.
 
 Two more one-time things on the recipient's side: the **Godot .NET** editor
 matching their CPU architecture, and **Experimental APIs** enabled in Lens Studio

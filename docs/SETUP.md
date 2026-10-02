@@ -39,6 +39,27 @@ C:\Users\jared\AppData\Local\Microsoft\WinGet\Packages\VirtualDrivers.Virtual-Di
 
 The ARM64 driver catalog is validly signed (SignPath Foundation, via GlobalSign).
 
+### 1.1a Normally, let the app do it
+
+On **x64 Windows**, you do not need any of the manual steps below. Start the
+host and press **Install driver…** in its header. It will:
+
+- show you exactly what it is about to do, before anything happens
+- use a copy of the driver already on the machine, or fetch it from the
+  [Virtual Display Driver releases](https://github.com/VirtualDrivers/Virtual-Display-Driver)
+- ask for administrator rights with a normal Windows UAC prompt
+- run the install in a **visible** console window you can read
+- log every step into the app's own log pane
+
+The script it runs is written to disk first, in plain text, and the log says
+where — read it before approving if you want to. **Uninstall driver** reverses
+it, as does Device Manager.
+
+The button only appears when installing could actually succeed. On this ARM64
+laptop it does not appear, and the app says why instead (§1.3a).
+
+The rest of section 1 is the manual path, and the ARM64 situation.
+
 ### 1.2 Do not use VDD Control's Install button on this machine
 
 It fails, and the log says why:
@@ -88,6 +109,67 @@ Get-PnpDevice -Class Display | Where-Object FriendlyName -match 'Virtual Display
 
 Status should be **OK**. `C:\VirtualDisplayDriver\vdd_settings.xml` already
 exists — VDD Control got that far before failing, so the config is in place.
+
+### 1.3a The ARM64 wall, and what it actually costs to get past it
+
+**On this laptop the driver cannot be installed at all as things stand.** The
+install fails with:
+
+```
+Driver package failed signature validation. Error = 0x800B0109
+A certificate chain processed, but terminated in a root certificate
+which is not trusted by the trust provider.
+```
+
+Windows on ARM64 only accepts drivers signed with a **Windows, WHQL, ELAM or
+Store** certificate. It does not accept commercial code-signing certificates at
+all — x64 is far more relaxed about this. VDD is signed by SignPath Foundation
+via GlobalSign, which is a commercial code-signing certificate, so ARM64 refuses
+it. This is an open upstream bug:
+[VirtualDrivers/Virtual-Display-Driver#465](https://github.com/VirtualDrivers/Virtual-Display-Driver/issues/465).
+
+Nothing in this project can fix that. Bundling the driver into the app does not
+help; the signature is the problem, not the packaging. It would take the VDD
+project getting the driver attestation-signed through Microsoft's Partner
+Center.
+
+**The only way past it is to stop Windows enforcing the rule**, which means
+three changes, in this order:
+
+1. **Memory Integrity off** — Windows Security → Device security → Core
+   isolation → Memory integrity → Off. Reboot.
+2. **Secure Boot off** — this is a **UEFI firmware setting and cannot be changed
+   from inside Windows**. Settings → System → Recovery → Advanced startup →
+   Restart now → Troubleshoot → Advanced options → UEFI Firmware Settings →
+   Restart. Find Secure Boot in the firmware menu (usually under Security or
+   Boot) and disable it.
+3. **Test signing on** — once Secure Boot is off, in an admin terminal:
+   `bcdedit /set testsigning on`, then reboot. It has no effect while Secure
+   Boot is on.
+
+**What that costs, permanently, until you undo it:**
+
+| | |
+| --- | --- |
+| BitLocker | Changing Secure Boot invalidates the TPM measurement, so Windows will demand your **48-digit recovery key** at the next boot. Get it from [aka.ms/myrecoverykey](https://aka.ms/myrecoverykey) **before** you start. Your C: drive is fully encrypted. |
+| Desktop | A permanent "Test Mode" watermark in the corner |
+| Security | Memory Integrity and Secure Boot are two of the stronger protections on a modern Windows machine. Off is meaningfully weaker. |
+| Media | Some DRM-protected video stops playing |
+| Certainty | **It still might not work.** Issue #465 is open and ARM64 users report mixed results even after all this. |
+
+To undo: `bcdedit /set testsigning off`, re-enable Secure Boot in firmware, turn
+Memory Integrity back on. The virtual monitors stop working at that point.
+
+**The cheaper alternatives**, in rough order of sanity:
+
+1. **Run the host on an x64 Windows PC.** The driver installs there without any
+   of this. The Godot host is portable and the glasses connect over your LAN to
+   whichever machine runs it — the laptop is not special. This is the
+   recommended route.
+2. **Develop against the built-in display.** Start the host with
+   `HOLO_STREAM_PRIMARY=1` and everything except the resolution-change path
+   works, including the whole lens.
+3. **Wait for upstream** to get an attestation-signed ARM64 driver.
 
 ### 1.4 If it lands with Code 52
 

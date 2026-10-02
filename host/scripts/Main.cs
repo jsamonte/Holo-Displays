@@ -29,6 +29,9 @@ public partial class Main : Control
     private OptionButton _previewPick = null!;
     private SpinBox _monitorCount = null!;
     private Button _applyCount = null!;
+    private Button _installVdd = null!;
+    private Button _uninstallVdd = null!;
+    private ConfirmationDialog _consent = null!;
     private HSlider _quality = null!;
     private Label _qualityLabel = null!;
     private SpinBox _fullFps = null!;
@@ -50,6 +53,9 @@ public partial class Main : Control
         _previewPick = GetNode<OptionButton>("%PreviewPick");
         _monitorCount = GetNode<SpinBox>("%MonitorCount");
         _applyCount = GetNode<Button>("%ApplyCount");
+        _installVdd = GetNode<Button>("%InstallVdd");
+        _uninstallVdd = GetNode<Button>("%UninstallVdd");
+        _consent = GetNode<ConfirmationDialog>("%Consent");
         _quality = GetNode<HSlider>("%Quality");
         _qualityLabel = GetNode<Label>("%QualityLabel");
         _fullFps = GetNode<SpinBox>("%FullFps");
@@ -69,6 +75,9 @@ public partial class Main : Control
         _fullFps.ValueChanged += v => _server.FullFps = v;
         _maxEdge.ValueChanged += v => _capture.MaxLongEdge = (int)v;
         _applyCount.Pressed += OnApplyCount;
+        _installVdd.Pressed += OnInstallVddPressed;
+        _uninstallVdd.Pressed += OnUninstallVddPressed;
+        _consent.Confirmed += OnInstallConfirmed;
         _previewPick.ItemSelected += _ => { };
 
         Log($"Godot {Engine.GetVersionInfo()["string"]}  {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}");
@@ -151,30 +160,90 @@ public partial class Main : Control
     // ---- VDD ---------------------------------------------------------------
 
     /// <summary>
-    /// VDD is a driver and cannot ship inside this project, so treat it as a
-    /// dependency to detect and explain rather than assume. A missing pipe
-    /// means the driver is absent or disabled — not that anything crashed.
+    /// VDD is a driver and cannot ship inside a Godot project, so the app
+    /// detects it and offers to set it up. A missing pipe means the driver is
+    /// absent or disabled — not that anything crashed.
     /// </summary>
     private async Task CheckVdd()
     {
-        _vddPresent = await VddPipe.IsAvailableAsync();
+        var status = await VddInstaller.CheckAsync();
+        _vddPresent = status.State == VddInstaller.Readiness.Running;
 
-        if (_vddPresent)
+        _vddStatus.Text = status.Message;
+        _vddStatus.Modulate = status.State switch
         {
-            _vddStatus.Text = "VDD: running";
-            _vddStatus.Modulate = new Color("#51cf66");
-            _monitorCount.Editable = true;
-            _applyCount.Disabled = false;
-            Log("VDD control pipe responded to PING");
+            VddInstaller.Readiness.Running => new Color("#51cf66"),
+            VddInstaller.Readiness.BlockedByArm64Signing => new Color("#ff6b6b"),
+            _ => new Color("#ffd43b"),
+        };
+
+        _monitorCount.Editable = _vddPresent;
+        _applyCount.Disabled = !_vddPresent;
+
+        // Only offer the install when it could actually succeed. Offering a
+        // button that cannot work is worse than saying why.
+        _installVdd.Visible = status.CanOfferInstall;
+        _uninstallVdd.Visible = _vddPresent;
+
+        if (status.Detail.Length > 0) Log($"[color=#ffd43b]{status.Detail}[/color]");
+        if (_vddPresent) Log("VDD control pipe responded to PING");
+    }
+
+    /// <summary>
+    /// Shows exactly what the install will do, and only acts if the user
+    /// confirms. Nothing about driver installation happens on its own.
+    /// </summary>
+    private void OnInstallVddPressed()
+    {
+        _consent.DialogText = VddInstaller.ConsentText(VddInstaller.WouldNeedDownload());
+        _consent.PopupCentered();
+    }
+
+    private async void OnInstallConfirmed()
+    {
+        _installVdd.Disabled = true;
+        try
+        {
+            Log("[b]installing the Virtual Display Driver[/b]");
+
+            var source = await VddInstaller.AcquireAsync(Log);
+            if (source == null)
+            {
+                Log("[color=#ff6b6b]could not obtain the driver; nothing was installed[/color]");
+                return;
+            }
+
+            var (ok, message) = await VddInstaller.InstallAsync(source.Directory, Log);
+            if (!ok)
+            {
+                Log($"[color=#ff6b6b]{message}[/color]");
+                return;
+            }
+
+            // The driver takes a moment to start and publish its pipe.
+            await Task.Delay(3000);
+            _displays.Refresh();
+            await CheckVdd();
         }
-        else
+        finally
         {
-            _vddStatus.Text = "VDD: not found — see docs/SETUP.md §1";
-            _vddStatus.Modulate = new Color("#ffd43b");
-            _monitorCount.Editable = false;
-            _applyCount.Disabled = true;
-            Log("[color=#ffd43b]No VDD control pipe. The driver is not installed or is disabled.[/color]");
-            Log("[color=#ffd43b]Displays below are whatever Windows already has.[/color]");
+            _installVdd.Disabled = false;
+        }
+    }
+
+    private async void OnUninstallVddPressed()
+    {
+        _uninstallVdd.Disabled = true;
+        try
+        {
+            await VddInstaller.UninstallAsync(Log);
+            await Task.Delay(2000);
+            _displays.Refresh();
+            await CheckVdd();
+        }
+        finally
+        {
+            _uninstallVdd.Disabled = false;
         }
     }
 
