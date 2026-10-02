@@ -1,0 +1,26 @@
+; Engine configuration file.
+; Holo-Displays host app.
+
+config_version=5
+
+[application]
+
+config/name="Holo-Displays Host"
+config/description="Captures Windows virtual monitors and streams them to Spectacles."
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1100
+window/size/viewport_height=700
+window/size/resizable=true
+
+[dotnet]
+
+project/assembly_name="HoloDisplaysHost"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"

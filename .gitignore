@@ -67,3 +67,27 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# ---------------------------------------------------------------
+# Godot .NET host app (host/)
+# ---------------------------------------------------------------
+# Godot's import cache and generated C# build output.
+.godot/
+host/bin/
+host/obj/
+*.csproj.user
+*.sln.DotSettings.user
+
+# Godot export output
+host/export/
+
+# ---------------------------------------------------------------
+# Lens Studio project (Spectacles/Holo-Display/)
+# ---------------------------------------------------------------
+# Regenerated on open; large and machine specific.
+Cache/
+*.esproj.*.lock
+PluginsUserPreferences/
+
+# Lens Studio build output
+*.lns
