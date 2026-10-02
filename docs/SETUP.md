@@ -133,8 +133,57 @@ help; the signature is the problem, not the packaging. It would take the VDD
 project getting the driver attestation-signed through Microsoft's Partner
 Center.
 
-**The only way past it is to stop Windows enforcing the rule**, which means
-three changes, in this order:
+**But this is a VDD problem, not an ARM64 problem.** Properly signed ARM64
+virtual display drivers install here perfectly well with Secure Boot, BitLocker
+and Memory Integrity all left on. Verified by inspecting
+[spacedesk](https://www.spacedesk.net/)'s ARM64 driver (v2.2.33), whose display
+catalog is signed:
+
+```
+CN=Microsoft Windows Hardware Compatibility Publisher, O=Microsoft Corporation
+Issuer: Microsoft Windows Third Party Component CA 2014
+```
+
+and whose INF declares `ntarm64.10.0...22000`. That is exactly the signature
+ARM64 requires. So the fix is a correctly signed driver, **not** a weakened
+machine — see §1.3b before touching Secure Boot.
+
+### 1.3b Getting virtual monitors here without weakening anything
+
+In rough order of effort:
+
+**1. Use a Microsoft-signed virtual display driver instead.**
+[spacedesk](https://www.spacedesk.net/download/)'s ARM64 server (v2.2.33)
+installs normally. Its driver creates WDDM virtual displays that extend the
+desktop, and this host captures *any* Windows display — it does not care which
+driver produced it, only that Windows reports a monitor. Caveat worth testing:
+spacedesk is built around a viewer client connecting, so confirm its displays
+persist usefully before relying on it. It also installs several other drivers
+(audio, HID, USB, capture), which is more than this project needs.
+
+**2. Attestation-sign VDD yourself.** VDD is MIT licensed, so this is allowed.
+Build it, make a CAB, sign the CAB with an EV certificate, submit it to the
+[Partner Center hardware dashboard](https://learn.microsoft.com/en-us/windows-hardware/drivers/dashboard/code-signing-attestation),
+and Microsoft returns an attestation-signed driver that installs on ARM64 with
+Secure Boot on. This is the clean, permanent fix and it would help everyone
+stuck on issue #465.
+
+Cost: an **EV code signing certificate, about $300/year**, plus a Hardware
+Developer Program account. Azure Trusted Signing is cheaper but
+[Microsoft confirmed it cannot be used](https://learn.microsoft.com/en-au/answers/questions/5866910/hardware-program-verification-using-azures-trusted)
+for hardware-program attestation — it supports neither EV certificates nor
+driver signing.
+
+**3. Run the host on an x64 Windows PC.** VDD installs there without ceremony,
+and the glasses connect over the LAN to whichever machine runs the host.
+
+Only if none of those suit you is §1.3c worth reading.
+
+### 1.3c Turning off Secure Boot — the last resort
+
+Having read §1.3b, if you still want this: **it means stopping Windows
+enforcing the rule**, which is three changes, in this order. This is almost
+certainly the wrong trade now that §1.3b exists.
 
 1. **Memory Integrity off** — Windows Security → Device security → Core
    isolation → Memory integrity → Off. Reboot.
@@ -160,16 +209,10 @@ three changes, in this order:
 To undo: `bcdedit /set testsigning off`, re-enable Secure Boot in firmware, turn
 Memory Integrity back on. The virtual monitors stop working at that point.
 
-**The cheaper alternatives**, in rough order of sanity:
-
-1. **Run the host on an x64 Windows PC.** The driver installs there without any
-   of this. The Godot host is portable and the glasses connect over your LAN to
-   whichever machine runs it — the laptop is not special. This is the
-   recommended route.
-2. **Develop against the built-in display.** Start the host with
-   `HOLO_STREAM_PRIMARY=1` and everything except the resolution-change path
-   works, including the whole lens.
-3. **Wait for upstream** to get an attestation-signed ARM64 driver.
+Prefer any of the routes in §1.3b to this. You can also develop against the
+built-in display in the meantime: start the host with `HOLO_STREAM_PRIMARY=1`
+and everything except the resolution-change path works, including the whole
+lens.
 
 ### 1.4 If it lands with Code 52
 
