@@ -152,14 +152,31 @@ machine — see §1.3b before touching Secure Boot.
 
 In rough order of effort:
 
-**1. Use a Microsoft-signed virtual display driver instead.**
-[spacedesk](https://www.spacedesk.net/download/)'s ARM64 server (v2.2.33)
-installs normally. Its driver creates WDDM virtual displays that extend the
-desktop, and this host captures *any* Windows display — it does not care which
-driver produced it, only that Windows reports a monitor. Caveat worth testing:
-spacedesk is built around a viewer client connecting, so confirm its displays
-persist usefully before relying on it. It also installs several other drivers
-(audio, HID, USB, capture), which is more than this project needs.
+**1. Use a Microsoft-signed virtual display driver instead — tested, and it is
+not a good fit.**
+
+[spacedesk](https://www.spacedesk.net/download/)'s ARM64 server (v2.2.33) was
+installed on this machine to settle the question. It **installed cleanly**, with
+Secure Boot, BitLocker and Memory Integrity untouched: `spacedeskdisplay.inf`
+landed in the driver store as a Display-class driver and `spacedeskService`
+started. That is the proof that the signature, not the architecture, is what
+blocks VDD.
+
+But **no monitor appears**. spacedesk materialises a display only when one of
+its viewer clients connects; the service just listens on `0.0.0.0:28252` with
+its own binary protocol, and no HTML5 viewer endpoint is exposed by default.
+
+Even with a viewer connected it would be the wrong shape for this project: you
+would run spacedesk's capture-encode-network stack purely to bring a monitor
+into existence, then this host would capture that same monitor and encode and
+stream it *again* to the glasses. Two encoders for one picture.
+
+Three further problems: it installs seven drivers (audio, HID, USB, bus,
+capture, mouse, display) when only one is wanted; its licence restricts
+redistribution, so it cannot be bundled the way MIT-licensed VDD can; and it is
+free for **non-commercial use only**.
+
+Useful as proof. Not a foundation.
 
 **2. Attestation-sign VDD yourself.** VDD is MIT licensed, so this is allowed.
 Build it, make a CAB, sign the CAB with an EV certificate, submit it to the
