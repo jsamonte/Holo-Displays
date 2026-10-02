@@ -27,6 +27,12 @@ public sealed class CaptureEngine
         public double CaptureMs;
         public double EncodeMs;
 
+        /// <summary>
+        /// Time spent on the unchanged-frame hash. Measured because it sits
+        /// between the other two timers and would otherwise be invisible.
+        /// </summary>
+        public double HashMs;
+
         /// <summary>True when the picture matched the last one sent and nothing was encoded.</summary>
         public bool Unchanged;
     }
@@ -59,10 +65,9 @@ public sealed class CaptureEngine
         frame.CaptureMs = (Time.GetTicksUsec() - t0) / 1000.0;
 
         // ---- dedup ----
-        // Hash a downsampled copy rather than the full image: a 64x64 thumbnail
-        // is ~4k pixels instead of ~2M, and still catches any change big enough
-        // to be worth a frame.
+        ulong tHash = Time.GetTicksUsec();
         ulong hash = CheapHash(image);
+        frame.HashMs = (Time.GetTicksUsec() - tHash) / 1000.0;
         if (!d.ForceNextFrame && hash == d.LastHash)
         {
             frame.Unchanged = true;
@@ -95,23 +100,39 @@ public sealed class CaptureEngine
     }
 
     /// <summary>
-    /// Cheap perceptual-ish hash of a 64x64 copy. Not cryptographic and does not
-    /// need to be — a collision costs one skipped frame, and the next change
-    /// will differ somewhere.
+    /// Cheap hash of the frame, used only to notice "nothing changed".
+    ///
+    /// Samples the raw buffer at a stride rather than resizing a copy. The
+    /// earlier version did CopyFrom + Resize, which duplicated the entire
+    /// image every frame — about 10 MB of copying per 1920x1280 capture, for a
+    /// number thrown away immediately. Worse, it sat between the capture and
+    /// encode timers, so none of that cost showed up in the measurements.
+    ///
+    /// Not cryptographic and does not need to be: a collision costs one skipped
+    /// frame, and the next change will land on a different byte.
     /// </summary>
     private static ulong CheapHash(Image source)
     {
-        var small = Image.CreateEmpty(64, 64, false, source.GetFormat());
-        small.CopyFrom(source);
-        small.Resize(64, 64, Image.Interpolation.Nearest);
+        byte[] data = source.GetData();
+        if (data.Length == 0) return 0;
 
-        byte[] data = small.GetData();
+        // ~16k samples regardless of resolution, so the cost does not grow with
+        // the monitor. Prime stride so it does not align with row boundaries and
+        // miss changes confined to one column.
+        const int targetSamples = 16384;
+        int stride = Math.Max(1, data.Length / targetSamples);
+        if (stride % 2 == 0) stride++;
+
         ulong hash = 1469598103934665603UL; // FNV-1a offset basis
-        for (int i = 0; i < data.Length; i++)
+        for (int i = 0; i < data.Length; i += stride)
         {
             hash ^= data[i];
             hash *= 1099511628211UL;
         }
+
+        // Mix the length in, so a resolution change can never hash equal.
+        hash ^= (ulong)data.Length;
+        hash *= 1099511628211UL;
         return hash;
     }
 }

@@ -1,51 +1,96 @@
 @echo off
+setlocal enabledelayedexpansion
 REM ---------------------------------------------------------------------------
 REM Opens the host project in Godot .NET with a working C# toolchain.
 REM
 REM Why this exists:
-REM   Godot 4.7.2's editor-side C# tooling cannot find an SDK when only the
-REM   .NET 10 SDK is installed. It asks for an SDK matching its runtime version
-REM   (10.0.12), sees 10.0.401, gives up with ".NET Sdk not found", and then
-REM   fails to load Microsoft.Build. The build hammer does nothing, so pressing
-REM   Play fails too.
+REM   Godot 4.7's editor-side C# tooling cannot find an SDK when only the .NET
+REM   10 SDK is installed. It asks for an SDK matching its runtime version,
+REM   sees a different feature band, gives up with ".NET Sdk not found", and
+REM   then fails to load Microsoft.Build. The build hammer does nothing, so
+REM   pressing Play fails too. Pointing DOTNET_ROOT at a .NET 8 SDK fixes it.
 REM
-REM   Pointing DOTNET_ROOT at a .NET 8 SDK fixes it. This is done here, for this
-REM   one process, rather than as a machine-wide environment variable, so
-REM   nothing else on the system changes which .NET it uses.
+REM   That is done here for this one process, rather than as a machine-wide
+REM   environment variable, so nothing else on the system changes which .NET it
+REM   uses.
 REM
-REM If you would rather not use this launcher, install the .NET 8 SDK into
-REM C:\Program Files\dotnet (needs admin) and Godot will find it on its own.
+REM Nothing below is specific to one machine: Godot and the .NET 8 SDK are
+REM searched for in the usual places, and GODOT can be set beforehand to point
+REM at a specific build.
 REM ---------------------------------------------------------------------------
 
-set "GODOT=C:\Users\jared\Downloads\Installers\Godot_v4.7.2-stable_mono_windows_arm64\Godot_v4.7.2-stable_mono_windows_arm64\Godot_v4.7.2-stable_mono_windows_arm64.exe"
-set "DOTNET8=C:\Users\jared\.dotnet"
+REM ---- find Godot .NET -------------------------------------------------------
+REM Honour an existing GODOT if the caller set one.
+if defined GODOT if exist "%GODOT%" goto :got_godot
 
-if not exist "%GODOT%" (
+set "GODOT="
+for %%D in (
+  "%USERPROFILE%\Downloads\Installers"
+  "%USERPROFILE%\Downloads"
+  "%LOCALAPPDATA%\Programs"
+  "C:\Program Files"
+) do (
+  if not defined GODOT (
+    for /f "delims=" %%F in ('dir /b /s "%%~D\Godot_v*_mono_*.exe" 2^>nul ^| findstr /v /i "console"') do (
+      if not defined GODOT set "GODOT=%%F"
+    )
+  )
+)
+
+if not defined GODOT (
   echo.
-  echo Godot not found at:
-  echo   %GODOT%
+  echo Could not find a Godot .NET build.
   echo.
-  echo This must be the mono_windows_arm64 build. The mono_win64 build is
-  echo x86_64, runs emulated on this machine, and cannot see the ARM64 .NET SDK.
+  echo Download the one matching your CPU from https://godotengine.org/download/windows/
+  echo   - 64-bit Intel/AMD : Godot_v4.7.x-stable_mono_win64
+  echo   - Snapdragon/ARM   : Godot_v4.7.x-stable_mono_windows_arm64
+  echo.
+  echo The plain (non-mono^) builds have no C# support at all, and on an ARM
+  echo machine the win64 build runs emulated and cannot see the ARM64 .NET SDK.
   echo See docs\SETUP.md section 2.
-  pause
-  exit /b 1
-)
-
-if not exist "%DOTNET8%\sdk" (
   echo.
-  echo No .NET 8 SDK at %DOTNET8%.
-  echo Install it without admin:
-  echo   curl -L https://dot.net/v1/dotnet-install.ps1 -o dotnet-install.ps1
-  echo   .\dotnet-install.ps1 -Channel 8.0 -Architecture arm64 -InstallDir "%DOTNET8%"
+  echo Or set GODOT to the executable before running this:
+  echo   set "GODOT=C:\path\to\Godot_v4.7.2-stable_mono_windows_arm64.exe"
+  echo.
   pause
   exit /b 1
 )
 
-set "DOTNET_ROOT=%DOTNET8%"
-set "PATH=%DOTNET8%;%PATH%"
+:got_godot
+echo Godot: %GODOT%
+
+REM ---- find a .NET 8 SDK, if one is about ------------------------------------
+set "DOTNET8="
+for %%D in (
+  "%USERPROFILE%\.dotnet"
+  "%ProgramFiles%\dotnet"
+  "%LOCALAPPDATA%\Microsoft\dotnet"
+) do (
+  if not defined DOTNET8 (
+    if exist "%%~D\sdk\8.*" set "DOTNET8=%%~D"
+  )
+)
+
+if defined DOTNET8 (
+  echo .NET 8 SDK: %DOTNET8%
+  set "DOTNET_ROOT=%DOTNET8%"
+  set "PATH=%DOTNET8%;%PATH%"
+) else (
+  echo.
+  echo No .NET 8 SDK found. Godot's build button may fail with
+  echo   ".NET Sdk not found"
+  echo even though 'dotnet build' works from a terminal.
+  echo.
+  echo Install one without admin rights:
+  echo   curl -L https://dot.net/v1/dotnet-install.ps1 -o dotnet-install.ps1
+  echo   .\dotnet-install.ps1 -Channel 8.0 -InstallDir "%%USERPROFILE%%\.dotnet"
+  echo.
+  echo Continuing anyway.
+  echo.
+)
 
 REM MSBuild node reuse leaves daemons behind that can hang later builds.
 set "MSBUILDDISABLENODEREUSE=1"
 
 start "" "%GODOT%" --path "%~dp0"
+endlocal

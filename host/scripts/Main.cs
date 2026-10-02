@@ -110,7 +110,7 @@ public partial class Main : Control
         {
             if (!d.Capturable) continue;
 
-            double capTotal = 0, encTotal = 0, bytesTotal = 0;
+            double capTotal = 0, encTotal = 0, hashTotal = 0, bytesTotal = 0;
             int n = 0;
 
             for (int i = 0; i < 20; i++)
@@ -120,16 +120,17 @@ public partial class Main : Control
                 if (f == null || f.Unchanged) continue;
                 capTotal += f.CaptureMs;
                 encTotal += f.EncodeMs;
+                hashTotal += f.HashMs;
                 bytesTotal += f.Jpeg.Length;
                 n++;
             }
 
             if (n == 0) { Log($"  {d.Name}: no frames captured"); continue; }
 
-            double cap = capTotal / n, enc = encTotal / n;
-            double ceiling = 1000.0 / (cap + enc);
+            double cap = capTotal / n, enc = encTotal / n, hash = hashTotal / n;
+            double ceiling = 1000.0 / (cap + enc + hash);
             Log($"  {d.Name} {d.Width}x{d.Height}");
-            Log($"    capture {cap,6:0.0} ms   encode {enc,6:0.0} ms   " +
+            Log($"    capture {cap,6:0.0} ms   hash {hash,5:0.0} ms   encode {enc,6:0.0} ms   " +
                 $"{bytesTotal / n / 1024,5:0} KB/frame");
             Log($"    ceiling {ceiling,6:0.0} fps on this thread" +
                 (ceiling < 15 ? "  [color=#ffd43b](under the 15 fps target — Phase 2 territory)[/color]" : ""));
@@ -348,7 +349,13 @@ public partial class Main : Control
                 continue;
             }
 
-            label.Text = $"{d.Tier,-5} {d.Fps,4:0.0} fps  {d.KbPerSec,6:0} KB/s  cap {d.CaptureMs,5:0.0} ms  enc {d.EncodeMs,5:0.0} ms";
+            // "static" rather than a misleading 0 fps: an unchanged desktop is
+            // deliberately costing no bandwidth, which is the system working.
+            string rate = d.LastWasUnchanged
+                ? "  static      "
+                : $"{d.Fps,5:0.0} fps {d.KbPerSec,6:0} KB/s";
+
+            label.Text = $"{d.Tier,-5} {rate}  cap {d.CaptureMs,5:0.0} ms  enc {d.EncodeMs,5:0.0} ms";
             label.Modulate = d.Tier switch
             {
                 "full" => new Color("#51cf66"),

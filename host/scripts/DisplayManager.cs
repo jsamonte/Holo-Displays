@@ -35,6 +35,12 @@ public sealed class TargetDisplay
     public ulong LastHash;
     public bool ForceNextFrame;
 
+    /// <summary>When a frame last actually went out, for measuring the real rate.</summary>
+    public ulong LastDeliveredMsec;
+
+    /// <summary>True when the most recent capture matched the last one sent.</summary>
+    public bool LastWasUnchanged;
+
     // --- stats for the UI ---
     public double CaptureMs;
     public double EncodeMs;

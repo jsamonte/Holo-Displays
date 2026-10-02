@@ -560,10 +560,14 @@ and encode. On this laptop, one 1920x1280 display:
 
 | | |
 | --- | --- |
-| capture (`ScreenGetImage`) | 34.4 ms |
-| encode (`SaveJpgToBuffer`, q 0.7) | 14.0 ms |
-| frame size | 147 KB |
-| ceiling | **20.7 fps**, single threaded |
+| capture (`ScreenGetImage`) | 35.5 ms |
+| unchanged-frame hash | 2.1 ms |
+| encode (`SaveJpgToBuffer`, q 0.7) | 13.8 ms |
+| frame size | 169 KB |
+| ceiling | **19.5 fps**, single threaded |
+
+An earlier version of this table said 20.7 fps, which was optimistic: the hash
+sat between the two timers and was not being counted at all. It is measured now.
 
 So Phase 1 clears the 15 fps target for **one** display with room to spare. Two
 virtual monitors both at `full` would need ~97 ms a pass and land near 10 fps,

@@ -18,7 +18,12 @@ const state = {
   orphanBinary: 0,
   modeChanged: [],
   tierMarks: [],
+  gaps: new Map(),          // "id|tier" -> [ms between consecutive frames]
+  lastArrival: new Map(),   // id -> {at, phase}
 };
+
+/** Smallest gap seen, which is what a tier's rate limit actually bounds. */
+const minGap = list => (list?.length ? Math.min(...list) : null);
 
 const problems = [];
 const ok = [];
@@ -108,6 +113,19 @@ function onBinary(buf) {
   state.framesByDisplay.set(key, (state.framesByDisplay.get(key) ?? 0) + 1);
   state.bytesByDisplay.set(key, (state.bytesByDisplay.get(key) ?? 0) + bytes.length);
 
+  // Record arrival times so the tiers can be checked by the gap between
+  // frames rather than by how many arrived. Frame COUNT is not a valid
+  // measure of the tier: the host skips unchanged frames, so on a static
+  // desktop the count reflects how much the screen moved, not the rate
+  // limit. A slow tier can legitimately out-count a fast one, because its
+  // longer interval gives the screen more time to change between captures.
+  // The gap is the thing the tier actually controls.
+  const now = Date.now();
+  if (!state.gaps.has(key)) state.gaps.set(key, []);
+  const last = state.lastArrival.get(h.id);
+  if (last !== undefined && last.phase === phase) state.gaps.get(key).push(now - last.at);
+  state.lastArrival.set(h.id, {at: now, phase});
+
   ws.send(JSON.stringify({ t: 'ack', id: h.id, seq: h.seq }));
 }
 
@@ -128,15 +146,32 @@ setTimeout(() => {
       const low = state.framesByDisplay.get(`${d.id}|low`) ?? 0;
       const kb = ((state.bytesByDisplay.get(`${d.id}|full`) ?? 0) / 1024).toFixed(0);
 
-      console.log(`  display ${d.id}: full ${full} frames (${(full / halfSec).toFixed(1)} fps, ${kb} KB), ` +
-                  `low ${low} frames (${(low / halfSec).toFixed(1)} fps)`);
+      const fullGap = minGap(state.gaps.get(`${d.id}|full`));
+      const lowGap = minGap(state.gaps.get(`${d.id}|low`));
+
+      console.log(`  display ${d.id}: full ${full} frames (${kb} KB, min gap ${fullGap ?? '-'} ms), ` +
+                  `low ${low} frames (min gap ${lowGap ?? '-'} ms)`);
 
       if (full === 0 && low === 0) {
         note(problems, `display ${d.id} sent no frames at all`);
-      } else if (low > full) {
-        note(problems, `display ${d.id}: "low" tier sent MORE frames than "full"`);
-      } else {
-        note(ok, `display ${d.id} streamed, and low < full as expected`);
+        continue;
+      }
+
+      note(ok, `display ${d.id} streamed`);
+
+      // Tiers are rate LIMITS. Check the floor on the interval, not the count:
+      // unchanged frames are skipped, so counts measure screen activity.
+      // Allowing 15% slack for scheduling jitter.
+      if (fullGap !== null && fullGap < 1000 / 15 * 0.85) {
+        note(problems, `display ${d.id}: frames arrived ${fullGap} ms apart at "full", faster than the 15 fps limit`);
+      } else if (fullGap !== null) {
+        note(ok, `display ${d.id} respected the "full" rate limit (min gap ${fullGap} ms)`);
+      }
+
+      if (lowGap !== null && lowGap < 1000 / 2 * 0.85) {
+        note(problems, `display ${d.id}: frames arrived ${lowGap} ms apart at "low", faster than the 2 fps limit`);
+      } else if (lowGap !== null) {
+        note(ok, `display ${d.id} respected the "low" rate limit (min gap ${lowGap} ms)`);
       }
     }
   } else {

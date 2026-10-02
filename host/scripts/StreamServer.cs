@@ -341,6 +341,7 @@ public sealed class StreamServer
             if (frame == null) continue;
 
             d.LastSentMsec = now;
+            d.LastWasUnchanged = frame.Unchanged;
 
             if (frame.Unchanged) continue;   // nothing to send, costs no bandwidth
 
@@ -366,9 +367,20 @@ public sealed class StreamServer
             d.FrameSentMsec = now;
             d.LastBytes = frame.Jpeg.Length;
 
-            // Smoothed stats for the UI.
-            d.Fps = d.Fps * 0.8 + (1000.0 / Math.Max(1.0, intervalMs)) * 0.2;
-            d.KbPerSec = d.KbPerSec * 0.8 + (frame.Jpeg.Length / 1024.0 * fps) * 0.2;
+            // Measured rate, not the target. The target is already known; what
+            // the UI needs to show is whether the link is keeping up with it.
+            if (d.LastDeliveredMsec != 0)
+            {
+                double gapMs = now - d.LastDeliveredMsec;
+                if (gapMs > 0)
+                {
+                    double instantFps = 1000.0 / gapMs;
+                    double instantKb = frame.Jpeg.Length / 1024.0 * instantFps;
+                    d.Fps = d.Fps <= 0 ? instantFps : d.Fps * 0.7 + instantFps * 0.3;
+                    d.KbPerSec = d.KbPerSec <= 0 ? instantKb : d.KbPerSec * 0.7 + instantKb * 0.3;
+                }
+            }
+            d.LastDeliveredMsec = now;
         }
     }
 }

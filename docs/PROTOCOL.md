@@ -177,9 +177,17 @@ Consequences worth remembering:
 
 ## Unchanged-frame skipping
 
-The host hashes a downsampled copy of each captured frame and skips sending if
-it matches the last frame sent for that display. A static monitor therefore
-costs no bandwidth.
+The host hashes each captured frame and skips sending if it matches the last
+frame sent for that display. A static monitor therefore costs no bandwidth.
+
+**This means frame count is not a measure of tier.** The tier sets how often the
+host *captures*; the hash decides whether anything is *sent*. On a mostly static
+desktop a `low` display can legitimately deliver more frames than a `full` one,
+because its longer interval gives the screen more time to change between
+captures. What a tier actually guarantees is a floor on the gap between frames —
+about 67 ms at `full`, 500 ms at `low`. Measure that, not the count.
+
+(`tools/protocol_test.mjs` originally got this wrong and failed a working host.)
 
 This does not apply to the first frame after a tier change — a panel coming back
 from `off` always gets a fresh frame, even if the desktop has not changed, so
