@@ -11,33 +11,162 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="Panel" type="PanelContainer" parent="."]
+[node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
 
-[node name="Margin" type="MarginContainer" parent="Panel"]
+[node name="VBox" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 24
+theme_override_constants/separation = 10
 
-[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+[node name="Header" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 20
 
-[node name="Title" type="Label" parent="Panel/Margin/VBox"]
+[node name="AddressBox" type="VBoxContainer" parent="Margin/VBox/Header"]
 layout_mode = 2
-text = "Holo-Displays Host  —  M0 environment check"
 
-[node name="Log" type="RichTextLabel" parent="Panel/Margin/VBox"]
+[node name="Caption" type="Label" parent="Margin/VBox/Header/AddressBox"]
+layout_mode = 2
+text = "Type this into the lens"
+
+[node name="Address" type="Label" parent="Margin/VBox/Header/AddressBox"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "0.0.0.0:8880"
+
+[node name="StateBox" type="VBoxContainer" parent="Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Status" type="Label" parent="Margin/VBox/Header/StateBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "starting"
+
+[node name="VddStatus" type="Label" parent="Margin/VBox/Header/StateBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "VDD: checking"
+
+[node name="CountBox" type="HBoxContainer" parent="Margin/VBox/Header"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CountLabel" type="Label" parent="Margin/VBox/Header/CountBox"]
+layout_mode = 2
+text = "Virtual monitors"
+
+[node name="MonitorCount" type="SpinBox" parent="Margin/VBox/Header/CountBox"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 8.0
+value = 1.0
+
+[node name="ApplyCount" type="Button" parent="Margin/VBox/Header/CountBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Apply"
+
+[node name="Sep1" type="HSeparator" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Settings" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="QLabel" type="Label" parent="Margin/VBox/Settings"]
+layout_mode = 2
+text = "JPEG quality"
+
+[node name="Quality" type="HSlider" parent="Margin/VBox/Settings"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+min_value = 0.1
+max_value = 1.0
+step = 0.05
+value = 0.7
+
+[node name="QualityLabel" type="Label" parent="Margin/VBox/Settings"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0.70"
+
+[node name="FLabel" type="Label" parent="Margin/VBox/Settings"]
+layout_mode = 2
+text = "full fps"
+
+[node name="FullFps" type="SpinBox" parent="Margin/VBox/Settings"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 1.0
+max_value = 60.0
+value = 15.0
+
+[node name="MLabel" type="Label" parent="Margin/VBox/Settings"]
+layout_mode = 2
+text = "max long edge"
+
+[node name="MaxEdge" type="SpinBox" parent="Margin/VBox/Settings"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 3840.0
+step = 160.0
+value = 1920.0
+
+[node name="Sep2" type="HSeparator" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Body" type="HSplitContainer" parent="Margin/VBox"]
+layout_mode = 2
 size_flags_vertical = 3
+split_offset = 620
+
+[node name="Left" type="VBoxContainer" parent="Margin/VBox/Body"]
+layout_mode = 2
+
+[node name="RowsLabel" type="Label" parent="Margin/VBox/Body/Left"]
+layout_mode = 2
+text = "Displays   (tick to stream; primary can never be streamed)"
+
+[node name="RowsScroll" type="ScrollContainer" parent="Margin/VBox/Body/Left"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Rows" type="VBoxContainer" parent="Margin/VBox/Body/Left/RowsScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Log" type="RichTextLabel" parent="Margin/VBox/Body/Left"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 170)
+layout_mode = 2
 bbcode_enabled = true
 scroll_following = true
 selection_enabled = true
+
+[node name="Right" type="VBoxContainer" parent="Margin/VBox/Body"]
+layout_mode = 2
+
+[node name="PreviewPick" type="OptionButton" parent="Margin/VBox/Body/Right"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Preview" type="TextureRect" parent="Margin/VBox/Body/Right"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 5

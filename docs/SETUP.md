@@ -301,28 +301,70 @@ dotnet --info
 
 Expect `RID: win-arm64`, `Architecture: arm64`, SDK `10.0.401`.
 
-### 2.4 Verified working
+### 2.4 You also need the .NET 8 SDK, for the editor
 
-A scratch Godot C# project targeting `net8.0` was created, restored, built and
-run headless on this machine. It printed its test string. So:
+`dotnet build` works fine with only the .NET 10 SDK — the `net8.0` reference
+packs restore from NuGet. But **Godot's editor tooling does not**:
 
-- .NET 10 SDK is fine. Godot 4.5+ needs "`.NET 8` or later", and although only
-  the 10.0.12 reference pack is installed locally, `net8.0` targeting packs
-  restore from NuGet on first build. **You do not need to install the .NET 8 SDK.**
-- First build in a fresh project takes ~15 s while it restores. After that it is
-  quick.
+```
+ERROR: .NET Sdk not found. The required version is '10.0.12'.
+ERROR: Could not load file or assembly 'Microsoft.Build, Version=15.1.0.0'
+```
+
+Godot 4.7.2 looks for an SDK matching its *runtime* version (10.0.12), sees
+10.0.401, and gives up. The build hammer then does nothing, and pressing Play
+fails with it, because Godot will not run C# it could not build.
+
+The .NET 8 SDK (8.0.425, arm64) has been installed **per-user** at
+`C:\Users\jared\.dotnet`, which needed no admin:
+
+```powershell
+curl -L https://dot.net/v1/dotnet-install.ps1 -o dotnet-install.ps1
+.\dotnet-install.ps1 -Channel 8.0 -Architecture arm64 -InstallDir "$env:USERPROFILE\.dotnet"
+```
+
+A per-user install is invisible to Godot unless `DOTNET_ROOT` points at it, and
+setting that machine-wide would change which .NET *every* app on your account
+uses. So it is scoped to one process instead — see §2.5.
+
+If you would rather have it work everywhere with no launcher, install the .NET 8
+SDK into `C:\Program Files\dotnet` (needs admin) and Godot finds it unaided.
 
 ### 2.5 Opening the host project
 
-From M1 onward the host project is at [host/](../host/).
+Use **[host/open_in_godot.bat](../host/open_in_godot.bat)**. It sets
+`DOTNET_ROOT` to the .NET 8 SDK for that one Godot process and opens the
+project. Nothing else on the machine is affected.
 
-1. Open `Godot_v4.7.2-stable_mono_windows_arm64.exe`.
-2. **Import** → pick `C:\GitHub\Holo-Displays\host\project.godot`.
-3. Build once with the hammer icon, top right, before pressing play. Godot needs
-   the assembly to exist before it can load C# nodes.
+Opening Godot directly works too, but the build hammer will fail as in §2.4.
 
-If the editor ever reports no .NET SDK again, you are in the wrong executable.
-Check the window title.
+Either way, build once before pressing Play — Godot needs the assembly to exist
+before it can load C# nodes. From a terminal, `dotnet build` in `host/` always
+works regardless of the editor.
+
+If the editor reports no .NET SDK, you are either in the wrong executable or you
+launched Godot without the batch file.
+
+### 2.6 Measured capture performance
+
+Run `Godot --path host -- --bench` (or the `--bench` user arg) to time capture
+and encode. On this laptop, one 1920x1280 display:
+
+| | |
+| --- | --- |
+| capture (`ScreenGetImage`) | 34.4 ms |
+| encode (`SaveJpgToBuffer`, q 0.7) | 14.0 ms |
+| frame size | 147 KB |
+| ceiling | **20.7 fps**, single threaded |
+
+So Phase 1 clears the 15 fps target for **one** display with room to spare. Two
+virtual monitors both at `full` would need ~97 ms a pass and land near 10 fps,
+under target — which is exactly when the Phase 2 work in `SPEC.md` (DXGI Desktop
+Duplication on worker threads) earns its place.
+
+Bandwidth is worth noticing too: 147 KB at 15 fps is about 18 Mbps per display.
+The gaze tiers in M6 exist precisely so that only the panel you are looking at
+pays that.
 
 ---
 

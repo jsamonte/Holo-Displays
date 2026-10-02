@@ -6,6 +6,14 @@ default (configurable in the host UI).
 > `SPEC.md` said 8765. The project uses **8880**. If you change it, change it in
 > the host UI and in the lens inspector.
 
+> **Lens Studio also listens on 127.0.0.1:8880** while it is open. The host
+> binds `0.0.0.0`, so Windows sends `127.0.0.1:8880` to Lens Studio and the
+> laptop's **LAN address** to the host. The glasses connect over the LAN
+> address, so this works — but a test client on the laptop must use the LAN IP,
+> not `127.0.0.1`, or it will reach Lens Studio and fail the handshake. If 8880
+> is fully occupied the host walks forward to 8881, 8882… and shows the port it
+> actually bound.
+
 Keep this file in sync with the code. The host's message handling lives in
 [host/scripts/](../host/scripts/); the lens side in
 [Spectacles/Holo-Display/Assets/Scripts/](../Spectacles/Holo-Display/Assets/Scripts/).

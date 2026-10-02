@@ -77,9 +77,9 @@ for `ws://`.
 | Milestone | State |
 | --- | --- |
 | M0 Scaffold | done |
-| M1 Host capture | not started |
-| M2 Host server + test client | not started |
-| M3 Host resolution changes | not started |
+| M1 Host capture | done |
+| M2 Host server + test client | done |
+| M3 Host resolution changes | code done, untested (needs VDD) |
 | M4 Lens single panel | not started |
 | M5 Lens multi panel + drag/resize | not started |
 | M6 Lens gaze tiers | not started |
