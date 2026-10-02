@@ -29,7 +29,6 @@ export class HoloPanel extends BaseScriptComponent {
   // --- display state ---
   private _info: DisplayInfo | null = null
   private _tier: Tier = "off"
-  private _lastTexture: Texture | null = null
 
   /** Fires when the user finishes scaling, with the panel's new aspect and width in cm. */
   onResizeReleased: ((aspect: number, widthCm: number) => void) | null = null
@@ -79,12 +78,20 @@ export class HoloPanel extends BaseScriptComponent {
     this.frame.innerSize = new vec2(w, w / aspect)
   }
 
+  /**
+   * Swaps in a new frame.
+   *
+   * Assigning baseTex is what releases the previous texture: nothing else holds
+   * a reference, so it becomes collectable immediately. An earlier version kept
+   * the texture in a field as well, which looked like leak protection but only
+   * added a second reference to the live one and did nothing for the old.
+   *
+   * At 15 fps this runs 900 times a minute per panel, so if memory does climb
+   * over a long session, this is the first place to look.
+   */
   setTexture(texture: Texture): void {
     if (this.image === null) return
     this.image.mainPass.baseTex = texture
-
-    // Drop the previous one so textures do not accumulate over a long session.
-    this._lastTexture = texture
   }
 
   setSwitching(on: boolean): void {

@@ -96,8 +96,8 @@ for `ws://`.
 | M1 Host capture | done |
 | M2 Host server + test client | done |
 | M3 Host resolution changes | code done, untested (needs VDD) |
-| M4 Lens single panel | scripts done, scene wiring pending |
-| M5 Lens multi panel + drag/resize | scripts done, scene wiring pending |
-| M6 Lens gaze tiers | scripts done, scene wiring pending |
-| M7 Lens resize to resolution | scripts done, scene wiring pending |
-| M8 Performance | if needed |
+| M4 Lens single panel | scripts done + typechecked, scene wiring pending |
+| M5 Lens multi panel + drag/resize | scripts done + typechecked, scene wiring pending |
+| M6 Lens gaze tiers | scripts done + typechecked, scene wiring pending |
+| M7 Lens resize to resolution | scripts done + typechecked, scene wiring pending |
+| M8 Performance | measured: 19.5 fps ceiling, one display. Phase 2 only needed for two at `full` |

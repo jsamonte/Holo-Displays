@@ -26,7 +26,9 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
-    {}
+    frame: false
+    image: false
+    switchingLabel: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -36,10 +38,13 @@
   Attachments:
     []
   DefaultScriptInputs:
-    -
-      {}
+    - frame: !<MappingBased.AssignableType> 00000000-0000-0000-0000-000000000000
+      image: !<reference.Image> 00000000-0000-0000-0000-000000000000
+      switchingLabel: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
   ScriptTypes:
     -
       {}
   InputLines:
-    []
+    - '// @input AssignableType frame {"hint":"UI Kit Frame on this prefab. Provides drag and corner resize."}'
+    - "// @input Component.Image image {\"hint\":\"Image showing the streamed desktop. Should be the Frame's content.\"}"
+    - '// @input SceneObject switchingLabel {"hint":"Label shown while a resolution change is in flight."}'

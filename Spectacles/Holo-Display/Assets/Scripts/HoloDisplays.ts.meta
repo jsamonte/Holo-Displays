@@ -26,7 +26,20 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
-    {}
+    arcDegrees: false
+    cameraObject: false
+    fullDegrees: false
+    hostIp: false
+    hostPort: false
+    hysteresisDegrees: false
+    internetModule: false
+    lowDegrees: false
+    panelDistanceCm: false
+    panelPrefab: false
+    panelWidthCm: false
+    pixelsPerMetre: false
+    remoteMediaModule: false
+    statusText: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -36,10 +49,35 @@
   Attachments:
     []
   DefaultScriptInputs:
-    -
-      {}
+    - hostIp: 192.168.1.10
+      hostPort: !<float> 8880.000000
+      internetModule: !<reference.InternetModule> 00000000-0000-0000-0000-000000000000
+      remoteMediaModule: !<reference.RemoteMediaModule> 00000000-0000-0000-0000-000000000000
+      cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      statusText: !<reference.Text> 00000000-0000-0000-0000-000000000000
+      panelPrefab: !<reference.ObjectPrefab> 00000000-0000-0000-0000-000000000000
+      panelWidthCm: !<float> 80.000000
+      panelDistanceCm: !<float> 100.000000
+      arcDegrees: !<float> 50.000000
+      fullDegrees: !<float> 25.000000
+      lowDegrees: !<float> 45.000000
+      hysteresisDegrees: !<float> 5.000000
+      pixelsPerMetre: !<float> 2400.000000
   ScriptTypes:
     -
       {}
   InputLines:
-    []
+    - "// @input string hostIp = \"192.168.1.10\" {\"hint\":\"Laptop's LAN IP. The host shows this in large text. NOT 127.0.0.1.\"}"
+    - '// @input float hostPort = 8880 {"hint":"Host port. 8880 unless the host says it fell forward to another."}'
+    - // @input Asset.InternetModule internetModule
+    - // @input Asset.RemoteMediaModule remoteMediaModule
+    - '// @input SceneObject cameraObject {"hint":"Camera the gaze test uses. Leave empty to find the main camera."}'
+    - '// @input Component.Text statusText {"hint":"Text showing connection state."}'
+    - '// @input Asset.ObjectPrefab panelPrefab {"hint":"Prefab with a HoloPanel component on its root."}'
+    - '// @input float panelWidthCm = 80 {"hint":"Panel width in centimetres. 80 = 0.8 m."}'
+    - '// @input float panelDistanceCm = 100 {"hint":"Distance from the user in centimetres. 100 = 1 m."}'
+    - '// @input float arcDegrees = 50 {"hint":"Total spread of the panel arc, in degrees."}'
+    - '// @input float fullDegrees = 25 {"hint":"Within this many degrees of centre: stream at full rate."}'
+    - '// @input float lowDegrees = 45 {"hint":"Within this many degrees: stream slowly. Beyond it: stop streaming."}'
+    - '// @input float hysteresisDegrees = 5 {"hint":"Extra degrees needed to leave a tier, so glancing does not flip it."}'
+    - '// @input float pixelsPerMetre = 2400 {"hint":"Pixels per metre of panel. 2400 makes a 0.8 m panel about 1920 px."}'

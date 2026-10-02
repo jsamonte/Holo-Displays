@@ -168,11 +168,18 @@ export class HoloDisplays extends BaseScriptComponent {
 
     const x = Math.sin(radians) * this.panelDistanceCm
     const z = -Math.cos(radians) * this.panelDistanceCm
+    const position = new vec3(x, 0, z)
 
     const transform = object.getTransform()
-    transform.setLocalPosition(new vec3(x, 0, z))
-    // Turn each panel to face the user rather than all facing the same way.
-    transform.setLocalRotation(quat.fromEulerAngles(0, radians, 0))
+    transform.setLocalPosition(position)
+
+    // Aim each panel back at the user, rather than deriving a Y rotation from
+    // the arc angle. Working the angle out by hand means guessing a sign
+    // convention, and getting it wrong turns every panel away from the viewer
+    // while still looking plausible in code. Pointing at a known target cannot
+    // have that bug.
+    const toUser = new vec3(-x, 0, -z).normalize()
+    transform.setLocalRotation(quat.lookAt(toUser, vec3.up()))
   }
 
   // ---- frames ------------------------------------------------------------

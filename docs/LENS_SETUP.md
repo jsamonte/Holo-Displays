@@ -143,6 +143,21 @@ portrait), then by how close the mode's width is to
 `panelWidthMetres * pixelsPerMetre`. If the best match is the current mode it
 sends nothing and just tidies the aspect.
 
+**Panel facing is the one thing I could not verify without the editor.**
+`placeOnArc` aims each panel with `quat.lookAt(toUser, vec3.up())` rather than
+deriving a Y rotation from the arc angle, because working that angle out by hand
+means guessing a sign convention and getting it wrong points every panel away
+from you while looking perfectly reasonable in the source. `lookAt` at a known
+target cannot have that bug — but whether Lens Studio treats a plane's visible
+face as `+Z` is still an assumption. If the panels come up backwards or
+edge-on, negate the vector:
+
+```ts
+const toUser = new vec3(x, 0, z).normalize()   // was -x, -z
+```
+
+That is the whole fix. Everything else about the layout is independent of it.
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
@@ -151,5 +166,6 @@ sends nothing and just tidies the aspect.
 | Connects then immediately drops | Pointed at `127.0.0.1` and reached Lens Studio instead of the host |
 | Panels appear but stay black | Host has no display ticked, or all panels are `off` — look at one |
 | Panels never drop to `off` | Camera Object not set and no camera found; check the log |
+| Panels are edge-on or facing away | See the note below — one-line fix in `placeOnArc` |
 | Resize does nothing | That mode is not in VDD's resolution list ([SETUP.md §1.5](SETUP.md)) |
 | Memory grows over a long session | Check that old textures are being released; see `HoloPanel.setTexture` |
