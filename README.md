@@ -42,8 +42,35 @@ matters more than usual:
 - Godot must be the **`mono_windows_arm64`** build, not `mono_win64`. The x86_64
   build runs under emulation and then cannot see the ARM64 .NET SDK.
 - VDD on ARM64 + Windows 11 24H2 or later may require test signing.
+- VDD Control's own Install button **misdetects this CPU as x86** and fails. The
+  driver installs fine by hand.
 
-Both are covered in [docs/SETUP.md](docs/SETUP.md).
+All three are covered in [docs/SETUP.md](docs/SETUP.md).
+
+## Sharing this with someone else
+
+The goal is that handing over **the Lens Studio project and the Godot project is
+enough**. That constrains the design, so it is worth stating plainly.
+
+What it rules out, and what the host therefore does not do:
+
+- **No external helper tools.** Everything the host needs is C# inside `host/` —
+  Win32 via P/Invoke, and the driver's named pipe. No bundled devcon, no Python,
+  no native DLLs to copy alongside.
+- **No hand-edited config as a setup step.** The host sets the virtual monitor
+  count itself over `\\.\pipe\MTTVirtualDisplayPipe`, unelevated. See
+  [docs/SETUP.md §1.6](docs/SETUP.md).
+- `tools/` is a development aid, not part of what gets shared.
+
+**The one thing that cannot ship inside the project is VDD itself.** It is a
+signed display driver and has to be installed on the target machine. So the host
+treats it as a dependency it detects and explains rather than assumes: on startup
+it pings the pipe, and if nothing answers it says so and points at the install
+steps instead of failing with an empty monitor list.
+
+Two more one-time things on the recipient's side: the **Godot .NET** editor
+matching their CPU architecture, and **Experimental APIs** enabled in Lens Studio
+for `ws://`.
 
 ## Status
 

@@ -190,3 +190,10 @@ These were agreed after the spec was written. `docs/PROTOCOL.md` and
 - **Godot is 4.7.2 .NET, `windows_arm64` build.** This is a Snapdragon X Plus
   laptop; the `mono_win64` (x86_64) build runs emulated and cannot see the
   ARM64 .NET SDK. See `docs/SETUP.md`.
+- **Virtual monitor count is controlled by the host app at runtime**, over the
+  driver's named pipe (`SETDISPLAYCOUNT`), not by hand-editing VDD's XML. The
+  XML still owns the resolution list, which has no runtime equivalent.
+- **Deliverable is the Lens project + the Godot project only.** No external
+  helper tools in the shipped path; `tools/` is development-only. VDD itself
+  still has to be installed on the target machine, so the host detects it and
+  explains rather than assuming it is there.

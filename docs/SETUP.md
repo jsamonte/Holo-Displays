@@ -39,11 +39,46 @@ C:\Users\jared\AppData\Local\Microsoft\WinGet\Packages\VirtualDrivers.Virtual-Di
 
 The ARM64 driver catalog is validly signed (SignPath Foundation, via GlobalSign).
 
-### 1.2 Install
+### 1.2 Do not use VDD Control's Install button on this machine
 
-1. Right-click **`VDD Control.exe`** → **Run as administrator**.
-2. Click **Install**.
-3. Approve the Windows driver prompt.
+It fails, and the log says why:
+
+```
+[INFO] Detected system architecture: x86
+[INFO] Expected driver path: SignedDrivers\x86\VDD\
+[ERROR] Driver installation failed with exit code: 2
+[ERROR] devcon.exe failed.
+```
+
+Both `VDD Control.exe` and the `devcon.exe` it shells out to are **x86_64**
+binaries. Under emulation they ask Windows what architecture it is and get back
+"x86", so VDD Control reaches for `SignedDrivers\x86\VDD\` and devcon refuses to
+install an x86 driver on an ARM64 system. The correct ARM64 driver is sitting in
+the next folder along, untouched.
+
+This is the same shape of bug as the Godot one in §2: an emulated process asking
+an architecture question and believing the answer.
+
+### 1.3 Install the ARM64 driver by hand
+
+There is no ARM64 `devcon.exe` on this machine and the Windows Driver Kit is not
+installed, so skip devcon entirely. Windows' built-in **Add Legacy Hardware**
+wizard creates the same root-enumerated device node without it.
+
+The ARM64 INF is correct for this — it declares `[Standard.NTARM64]` with the
+`Root\MttVDD` hardware ID, which is exactly what the wizard needs.
+
+1. Press **Win+X** → **Device Manager** (as administrator).
+2. Select any node, then **Action** → **Add legacy hardware**.
+3. **Next** → **Install the hardware that I manually select from a list (Advanced)**.
+4. Choose **Display adapters** → **Next**.
+5. Click **Have Disk...** → **Browse...** and point at:
+   ```
+   C:\Users\jared\AppData\Local\Microsoft\WinGet\Packages\VirtualDrivers.Virtual-Display-Driver_Microsoft.Winget.Source_8wekyb3d8bbwe\SignedDrivers\ARM64\VDD\MttVDD.inf
+   ```
+   Note **ARM64**, not x86.
+6. Pick **Virtual Display Driver** → **Next** → **Next**.
+7. Accept the Windows Security prompt.
 
 Check it worked:
 
@@ -51,17 +86,20 @@ Check it worked:
 Get-PnpDevice -Class Display | Where-Object FriendlyName -match 'Virtual Display'
 ```
 
-You should also now have a live config directory at **`C:\VirtualDisplayDriver\`**.
+Status should be **OK**. `C:\VirtualDisplayDriver\vdd_settings.xml` already
+exists — VDD Control got that far before failing, so the config is in place.
 
-### 1.3 The ARM64 catch
+### 1.4 If it lands with Code 52
 
 The VDD project's own docs say:
 
 > ARM64 Support in Windows 11 24H2 or later may require test signing be enabled.
 
-This laptop is ARM64 on build 26200, so you may hit it. The symptom is the
-driver installing but sitting in Device Manager with **Code 52** ("Windows cannot
-verify the digital signature").
+This laptop is ARM64 on build 26200, so you may hit it. The symptom is the device
+appearing in Device Manager with **Code 52** ("Windows cannot verify the digital
+signature"). The driver catalog *is* validly signed (SignPath Foundation via
+GlobalSign), but that is a code-signing certificate rather than a WHQL
+attestation, and ARM64 enforces harder.
 
 If that happens, enabling test signing is a real trade-off, not a formality:
 
@@ -75,11 +113,10 @@ bcdedit /set testsigning on      (admin, then reboot)
 - Some DRM-protected video stops playing.
 
 That is your call to make, not something to do casually. If you would rather not,
-the alternative is to drop the ARM64 driver and run the host against your
-built-in display only — which is enough to build and test M1 through M3, just
-with one monitor instead of two.
+the alternative is to run the host against your built-in display only — which is
+enough to build and test M1 through M3, just with one monitor instead of two.
 
-### 1.4 Configure for 2 monitors
+### 1.5 Configure resolutions
 
 The driver reads its live config from:
 
@@ -90,15 +127,12 @@ C:\VirtualDisplayDriver\vdd_settings.xml
 Not the copy in `Dependencies\`. That one is only the template used at install
 time.
 
-Edit the live file (admin) and set the count to 2:
+**You do not need to hand-edit `<monitors><count>` .** The host app sets the
+display count at runtime over the driver's control pipe — see §1.6. The count in
+the XML is just the value the driver boots with. Leave it at 1.
 
-```xml
-<monitors>
-    <count>2</count>
-</monitors>
-```
-
-The resolution list is the other half of what this project needs. The host can
+The resolution list, though, has no runtime equivalent and does have to be right
+here. The host can
 only switch a monitor to a mode the driver advertises, so everything you want to
 resize to has to be in here. The shipped list is 800x600, 1366x768, 1920x1080,
 2560x1440, 3840x2160. Add the portrait modes, because a tall panel beside your
@@ -138,17 +172,74 @@ Anything in `<global><g_refresh_rate>` is applied to every resolution on top of
 the per-resolution rate, so you get 60/90/120/144/165/244 variants for free. For
 streaming to glasses at 15 fps none of that matters much — leave it alone.
 
-Then **reload the driver** (VDD Control → Disable, then Enable) or reboot.
+Then **reload the driver** — Device Manager → the Virtual Display Driver device →
+Disable, then Enable. Or send `RELOAD_DRIVER` over the control pipe (§1.6).
 Changes to the XML do not take effect until you do.
 
-### 1.5 M0 is done when
+### 1.6 Controlling the driver at runtime
 
-**Settings → System → Display** shows **3 displays**: your built-in panel plus
-two virtual ones. Drag them into a sensible arrangement — the host reports each
-monitor's desktop position, and it is easier to reason about later if the
-layout is not a pile.
+The driver runs a named pipe server. This is how the host app adds and removes
+virtual monitors without touching XML, without admin, and without a reboot.
 
-### 1.6 Before GPU driver updates
+```
+\\.\pipe\MTTVirtualDisplayPipe
+```
+
+Messages are **UTF-16** (wide strings) in **message mode**. The pipe is created
+with the security descriptor `D:(A;;GA;;;WD)` — full access for *Everyone* — so
+**any process can drive it unelevated**. That is what makes the Godot host able
+to own display count rather than asking you to edit a file.
+
+Commands, read from the driver source (`Driver.cpp`):
+
+| Command | Effect |
+| --- | --- |
+| `SETDISPLAYCOUNT <n>` | Set the number of virtual monitors. Writes the XML *and* reloads the driver for you |
+| `RELOAD_DRIVER` | Reload after an XML edit |
+| `PING` | Liveness check. Use this to detect whether VDD is installed and running |
+| `GETSETTINGS` | Read back current settings |
+| `GETALLGPUS`, `GETASSIGNEDGPU`, `SETGPU` | Which GPU renders the virtual displays |
+| `IDDCXVERSION` | Driver's IddCx version |
+| `HDRPLUS`, `SDR10`, `HARDWARECURSOR`, `CUSTOMEDID`, `PREVENTSPOOF`, `CEAOVERRIDE` | Boolean toggles, `true`/`false` |
+| `LOGGING`, `LOG_DEBUG` | Logging toggles |
+
+`SETDISPLAYCOUNT` parses its argument with `swscanf_s(buffer + 15, L"%d", ...)`,
+so `SETDISPLAYCOUNT 2` works.
+
+**There is no command for resolutions.** The mode list only comes from the XML in
+§1.5, which is why that part still has to be edited by hand once.
+
+Note that `SETDISPLAYCOUNT` reloads the driver, so every monitor blinks out and
+back. The host has to re-enumerate displays afterwards, and any resolution the
+user had set returns to default.
+
+### 1.7 M0 is done when
+
+With the XML left at `<count>1</count>`, **Settings → System → Display** shows
+**2 displays**: your built-in panel plus one virtual one.
+
+Then prove the control pipe works, which is the mechanism the host will use for
+the rest of the project. This needs no admin:
+
+```powershell
+$p = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'MTTVirtualDisplayPipe', 'InOut')
+$p.Connect(3000)
+$w = New-Object System.IO.StreamWriter($p, [System.Text.Encoding]::Unicode)
+$w.Write('SETDISPLAYCOUNT 2'); $w.Flush()
+$p.Dispose()
+```
+
+Display Settings should go to **3 displays** a second or two later, after the
+driver reloads itself. Set it back with `SETDISPLAYCOUNT 1` if you like.
+
+That is M0 done: the driver works, and the count is controllable from code
+rather than from a file.
+
+Drag the monitors into a sensible arrangement while you are in there — the host
+reports each monitor's desktop position, and it is easier to reason about later
+if the layout is not a pile.
+
+### 1.8 Before GPU driver updates
 
 Uninstall VDD before any major GPU or chipset driver update, then reinstall. The
 project's docs warn about black screens and display-priority problems otherwise.
@@ -303,11 +394,14 @@ and time out; the fix is an inbound TCP allow rule for 8880.
 | Godot says no .NET SDK found | Running `mono_win64` instead of `mono_windows_arm64` (§2.1) |
 | Godot has no C# option at all | Running the standard `win64` build, not a `.mono` one |
 | `dotnet` not recognised | Terminal predates the PATH change — open a new one |
-| Virtual display in Device Manager with Code 52 | ARM64 signature enforcement (§1.3) |
-| Edited the XML, nothing changed | Edited `Dependencies\vdd_settings.xml` instead of `C:\VirtualDisplayDriver\vdd_settings.xml`, or did not reload the driver (§1.4) |
-| Resize to a resolution fails | That mode is not in the driver's resolution list — add it and reload |
+| VDD Control says `Detected system architecture: x86`, devcon exit code 2 | VDD Control is x86_64 and misdetects this ARM64 CPU. Install by hand (§1.3) |
+| Virtual display in Device Manager with Code 52 | ARM64 signature enforcement (§1.4) |
+| Edited the XML, nothing changed | Edited `Dependencies\vdd_settings.xml` instead of `C:\VirtualDisplayDriver\vdd_settings.xml`, or did not reload the driver (§1.5) |
+| Pipe connect fails / `PING` times out | Driver not installed, or installed but disabled. The pipe only exists while the driver runs (§1.6) |
+| Resize to a resolution fails | That mode is not in the driver's resolution list — add it and reload (§1.5) |
+| Monitors blink and resolutions reset | Expected: `SETDISPLAYCOUNT` reloads the driver (§1.6) |
 | Glasses never connect | Experimental APIs off, firewall, wrong IP, or AP isolation |
-| Black screen after a GPU driver update | Uninstall and reinstall VDD (§1.6) |
+| Black screen after a GPU driver update | Uninstall and reinstall VDD (§1.8) |
 
 ## Sources
 
