@@ -735,3 +735,50 @@ and time out; the fix is an inbound TCP allow rule for 8880.
 - [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver)
 - [Godot C# basics](https://docs.godotengine.org/en/stable/tutorials/scripting/c_sharp/c_sharp_basics.html)
 - [Spectacles WebSocket API](https://developers.snap.com/spectacles/about-spectacles-features/apis/web-socket)
+
+---
+
+## Appendix: the free-option search, and what it turned up
+
+Searched GitHub, Microsoft Q&A, OSR and the community knowledge bases on
+2026-10-02. Recorded so nobody repeats it.
+
+**Every virtual display driver found, and why each fails here:**
+
+| Candidate | Verdict |
+| --- | --- |
+| Virtual-Display-Driver (and the damilolaoxox, peacepenguin, timminator, GitHangar, CharifMah, vitco forks) | SignPath **OV** certificate — refused by ARM64. Forks ship **x64-only** installers |
+| parsec-vdd | Also SignPath OV, and x64 only |
+| IddSampleDriver / ge9 / roshkins | **Unsigned** |
+| RustDeskIddDriver | Unsigned |
+| virtual-display-rs | Unsigned |
+| usbmmidd_v2 (Amyuni) | Signed but **commercial**, x64 only |
+| spacedesk | Microsoft-signed and ARM64 — but refuses `localhost`, so it needs a second device permanently connected (§1.3a) |
+| Virtual Display Driver on itch.io | "Name your own price" — the *same* driver and the same certificate |
+
+The [deskreen virtual display knowledge base](https://github.com/pavlobu/deskreen/discussions/86),
+a curated list, contains **nothing** that is free *and* Microsoft-signed *and*
+ARM64.
+
+**Why there is no free signing route:**
+
+- Microsoft's **attestation signing is itself free**, with unlimited
+  submissions — but the Hardware Dev Center account must carry a valid **EV**
+  certificate before it will accept anything.
+- **SignPath Foundation**, the free programme for open source and what VDD and
+  parsec-vdd both use, issues **OV**. OV is exactly what ARM64 rejects.
+- **OSSign** covers executables, not kernel-mode drivers.
+- No Microsoft programme waives the EV requirement for open source. Searched
+  specifically; none announced as of 2026.
+
+So the chain is: free OSS signing → OV → rejected by ARM64. It is a funding
+problem, not a technical one, and it is why the gap persists.
+
+**The direction of travel is the wrong way.** Windows is tightening, not
+loosening: as of April 2026 legacy cross-signed kernel drivers are blocked
+outright under the new WHCP-first policy. Waiting is not a strategy.
+
+**Both ARM64 issues on the VDD tracker are still open:** #465 (signing, 11
+comments, no fix) and #483 (Snapdragon display never attaches to the desktop,
+**no replies at all** since April). The second is the one that would still bite
+after any amount of money was spent on the first.
