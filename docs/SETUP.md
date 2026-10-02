@@ -148,6 +148,55 @@ and whose INF declares `ntarm64.10.0...22000`. That is exactly the signature
 ARM64 requires. So the fix is a correctly signed driver, **not** a weakened
 machine — see §1.3b before touching Secure Boot.
 
+### 1.3a-2 There is a second, separate Snapdragon blocker
+
+Before spending anything on signing, know that signing may not be enough.
+
+[VDD issue #483](https://github.com/VirtualDrivers/Virtual-Display-Driver/issues/483)
+(opened 2026-04-14, still open, **zero comments**) reports that on **Snapdragon X
+with the Adreno GPU** — this exact hardware — the driver installs and creates a
+monitor, but the display is **never attached to the desktop**:
+
+- it appears in `EnumDisplayDevices`
+- it does **not** appear in `EnumDisplayMonitors`, DXGI `EnumOutputs`, or
+  anything built on them
+
+That is fatal for this project independently of the certificate. The host finds
+displays through Godot's `DisplayServer` and captures with `ScreenGetImage`,
+both of which need a display that is actually a desktop output. A monitor
+Windows will not attach is one nothing can capture and nothing can be dragged
+onto.
+
+So this laptop has **two** unsolved problems stacked:
+
+1. The driver will not install (certificate, §1.3a).
+2. On Snapdragon X it reportedly would not work even once installed (#483).
+
+Nobody has answered #483 in six months. **Do not buy a certificate expecting it
+to fix this machine** — fixing problem 1 may simply expose problem 2.
+
+### 1.3a-3 Why no free signed driver exists anywhere
+
+Not an accident, and not for want of looking. The open-source indirect display
+drivers and how they sign, from parsec-vdd's own comparison table:
+
+| Project | IddCx | Signed |
+| --- | --- | --- |
+| IddSampleDriver | 1.2 | no |
+| RustDeskIddDriver | 1.2 | no |
+| virtual-display-rs | 1.5 | no |
+| parsec-vdd | 1.5 | yes — **SignPath Foundation** |
+| Virtual-Display-Driver (HDR) | 1.10 | yes — **SignPath Foundation** |
+| usbmmidd_v2 (Amyuni) | n/a | yes — commercial, x64 only |
+
+Both signed open-source drivers use **SignPath Foundation**, because that is the
+free code-signing programme for open source. SignPath issues **OV**-level
+certificates, and OV is exactly what Windows on ARM64 refuses.
+
+So the structural position is: free OSS signing gives OV; ARM64 demands
+WHQL/Store; therefore **no free, open-source, ARM64-installable virtual display
+driver exists**, and none can while that remains the funding model.
+
 ### 1.3b Getting virtual monitors here without weakening anything
 
 In rough order of effort:
@@ -222,6 +271,15 @@ For the certificate, the cheapest routes found in 2026:
   signing via eSigner means no hardware token to buy — though confirm with them
   that your chosen option meets the EV kernel-mode requirement, as their own
   page warns a YubiKey may not.
+
+> **Read §1.3a-2 before spending any of this.** Microsoft's own answer on a
+> [signed ARM64 driver that still would not install](https://learn.microsoft.com/en-us/answers/questions/2225246/signed-arm64-native-printer-driver-will-not-instal)
+> never offers attestation as a fix — it says ARM64 "intentionally enforces
+> stricter Code Integrity policies than Windows x64", and the route reported to
+> work was **full WHQL with an HLK catalog**, which is lab certification, not a
+> $300 certificate. The figures below are therefore the **x64** story. For ARM64
+> the cost is unknown and larger, and #483 suggests a Snapdragon display would
+> not attach to the desktop even then.
 
 **The certificate is not an annual subscription for this purpose.** Microsoft's
 attestation signature is theirs, not yours, and it is timestamped — the signed

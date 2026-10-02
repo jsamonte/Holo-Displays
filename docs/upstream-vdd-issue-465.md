@@ -121,7 +121,22 @@ reach, and the numbers are better than they look:
   EV** that validates an individual and explicitly covers kernel-mode driver
   signing and Partner Center submission.
 
-**One thing I could not confirm and would check before spending anything:**
+**Attestation may well not be enough, so this wants checking before anyone
+spends money.** Microsoft's answer on a
+[signed ARM64 driver that still would not install](https://learn.microsoft.com/en-us/answers/questions/2225246/signed-arm64-native-printer-driver-will-not-instal)
+never offers attestation as a route: it says ARM64 "intentionally enforces
+stricter Code Integrity policies than Windows x64", and the path reported to
+work was full WHQL with an HLK catalog. That thread ends unresolved.
+
+Also worth flagging alongside this one:
+[#483](https://github.com/VirtualDrivers/Virtual-Display-Driver/issues/483)
+reports that on Snapdragon X the driver creates a monitor which is never
+attached to the desktop — visible to `EnumDisplayDevices` but not to
+`EnumDisplayMonitors` or DXGI. If that is right, signing is necessary but not
+sufficient on this hardware, and whoever funds a certificate should know that
+before doing so. It has had no replies since April.
+
+**The original uncertainty, for completeness:**
 whether ARM64 is covered by *attestation* signing or requires full HLK/WHQL
 certification. The spacedesk catalog above is signed by the Hardware
 Compatibility Publisher, which is the signer for both, so the signature alone
