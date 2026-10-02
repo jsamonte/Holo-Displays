@@ -152,8 +152,8 @@ machine — see §1.3b before touching Secure Boot.
 
 In rough order of effort:
 
-**1. Use a Microsoft-signed virtual display driver instead — tested, and it is
-not a good fit.**
+**1. Use a Microsoft-signed virtual display driver instead — tested, and it
+does not work on a single machine.**
 
 [spacedesk](https://www.spacedesk.net/download/)'s ARM64 server (v2.2.33) was
 installed on this machine to settle the question. It **installed cleanly**, with
@@ -162,9 +162,24 @@ landed in the driver store as a Display-class driver and `spacedeskService`
 started. That is the proof that the signature, not the architecture, is what
 blocks VDD.
 
-But **no monitor appears**. spacedesk materialises a display only when one of
-its viewer clients connects; the service just listens on `0.0.0.0:28252` with
-its own binary protocol, and no HTML5 viewer endpoint is exposed by default.
+But **no monitor appears**, and it cannot be made to on one machine.
+
+spacedesk materialises a display only when one of its viewer clients connects.
+The obvious trick — run its free Windows viewer on the same laptop, pointed at
+itself — **does not work, by design**. Tested on 2026-10-02:
+
+- `127.0.0.1` fails. The TCP port accepts loopback, but discovery runs over UDP
+  and those sockets bind only to the real interfaces, never to `127.0.0.1`, so
+  the viewer searches forever.
+- The machine's own LAN address fails too, with an explicit refusal:
+  **`Invalid entry: Local host`**. The viewer detects the address belongs to
+  this host and rejects it outright.
+
+So a spacedesk display needs a **second device** — phone, tablet or another PC —
+running the viewer and staying connected. The monitor exists only while that
+device is attached. Using one as a permanent dummy viewer to conjure a monitor,
+which this host then captures and re-encodes for the glasses, is not a design
+worth building on.
 
 Even with a viewer connected it would be the wrong shape for this project: you
 would run spacedesk's capture-encode-network stack purely to bring a monitor
