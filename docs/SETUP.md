@@ -185,11 +185,51 @@ and Microsoft returns an attestation-signed driver that installs on ARM64 with
 Secure Boot on. This is the clean, permanent fix and it would help everyone
 stuck on issue #465.
 
-Cost: an **EV code signing certificate, about $300/year**, plus a Hardware
-Developer Program account. Azure Trusted Signing is cheaper but
-[Microsoft confirmed it cannot be used](https://learn.microsoft.com/en-au/answers/questions/5866910/hardware-program-verification-using-azures-trusted)
-for hardware-program attestation — it supports neither EV certificates nor
-driver signing.
+**What this actually costs.** Less than "$300/year" suggests, because the
+recurring framing is wrong:
+
+| Item | Cost |
+| --- | --- |
+| Partner Center / Hardware Developer Program registration | **free** |
+| Microsoft Entra ID directory (created during registration) | **free** |
+| Microsoft's attestation signing itself | **free**, unlimited submissions |
+| EV code signing certificate | the only real cost |
+
+For the certificate, the cheapest routes found in 2026:
+
+- **With a registered business:** Sectigo EV via resellers, around
+  **$279/year**, or roughly $840 for three years.
+- **As an individual, with no company:** SSL.com's
+  [Sole Proprietor EV](https://www.ssl.com/products/software-integrity/code-signing/ev-sole-proprietor/)
+  validates a person rather than a business entity and explicitly covers
+  Windows kernel-mode driver signing and Partner Center submission.
+  **$359 for one year**, down to **$201/year on a five-year term**. Cloud
+  signing via eSigner means no hardware token to buy — though confirm with them
+  that your chosen option meets the EV kernel-mode requirement, as their own
+  page warns a YubiKey may not.
+
+**The certificate is not an annual subscription for this purpose.** Microsoft's
+attestation signature is theirs, not yours, and it is timestamped — the signed
+driver keeps working after your certificate expires. You only need a live
+certificate at the moment you *submit*. So signing VDD once is a **one-off
+~$279–359**, not a yearly bill, unless you want to sign new driver versions
+later.
+
+Two things that do **not** work, both checked:
+
+- [Azure Trusted Signing](https://learn.microsoft.com/en-au/answers/questions/5866910/hardware-program-verification-using-azures-trusted)
+  is cheaper but Microsoft state plainly it supports neither EV certificates nor
+  driver signing, so it cannot be used for hardware-program attestation.
+- **SignPath Foundation**, which signs open source for free and is already what
+  VDD uses, issues **OV-level** certificates. Attestation requires EV, so the
+  free-for-OSS route does not reach.
+
+**The genuinely free option is to not pay for it yourself.** VDD is open source
+and [issue #465](https://github.com/VirtualDrivers/Virtual-Display-Driver/issues/465)
+is open precisely because its ARM64 build cannot install. If the project ever
+attestation-signs its driver, every ARM64 user is unblocked at no cost to
+anyone downstream. Adding your findings to that issue costs nothing and is the
+highest-leverage thing available here.
 
 **3. Run the host on an x64 Windows PC.** VDD installs there without ceremony,
 and the glasses connect over the LAN to whichever machine runs the host.
