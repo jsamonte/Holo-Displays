@@ -32,7 +32,8 @@ Everything else follows the spec.
 
 1. [docs/SETUP.md](docs/SETUP.md) — install and configure VDD, Godot .NET, Lens Studio.
 2. [docs/PROTOCOL.md](docs/PROTOCOL.md) — the WebSocket protocol between host and lens.
-3. [SPEC.md](SPEC.md) — the full build spec and milestone list.
+3. [docs/LENS_SETUP.md](docs/LENS_SETUP.md) — wiring the lens scene, step by step.
+4. [SPEC.md](SPEC.md) — the full build spec and milestone list.
 
 ## This machine
 
@@ -80,8 +81,8 @@ for `ws://`.
 | M1 Host capture | done |
 | M2 Host server + test client | done |
 | M3 Host resolution changes | code done, untested (needs VDD) |
-| M4 Lens single panel | not started |
-| M5 Lens multi panel + drag/resize | not started |
-| M6 Lens gaze tiers | not started |
-| M7 Lens resize to resolution | not started |
+| M4 Lens single panel | scripts done, scene wiring pending |
+| M5 Lens multi panel + drag/resize | scripts done, scene wiring pending |
+| M6 Lens gaze tiers | scripts done, scene wiring pending |
+| M7 Lens resize to resolution | scripts done, scene wiring pending |
 | M8 Performance | if needed |
