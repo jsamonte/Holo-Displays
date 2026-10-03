@@ -129,6 +129,25 @@ export class HoloDisplays extends BaseScriptComponent {
   }
 
   private start(): void {
+    // Before anything that can fail, so a failure has somewhere to be shown.
+    try {
+      this.ensureStatusLabel()
+    } catch (e) {
+      print(`HoloDisplays: could not create the status label: ${e}`)
+    }
+
+    try {
+      this.startInner()
+    } catch (e) {
+      // An uncaught exception here would leave a blank lens and no clue why.
+      this.setStatus(`error: ${e}`, false)
+      print(`HoloDisplays: start failed: ${e}`)
+    }
+  }
+
+  private startInner(): void {
+    this.setStatus("starting", false)
+
     if (!this.resolveModules()) return
     if (!this.resolvePanelAssets()) return
 
@@ -505,11 +524,43 @@ export class HoloDisplays extends BaseScriptComponent {
     return null
   }
 
+  /** Status label created in code, so there is always something on screen. */
+  private ownStatus: Text | null = null
+
+  /**
+   * Makes a status label if the inspector did not supply one.
+   *
+   * Without this, a lens that fails to connect shows absolutely nothing — no
+   * panels, no error, no sign it is even running — which is the worst possible
+   * first-run experience and exactly what happened the first time.
+   */
+  private ensureStatusLabel(): void {
+    if (this.statusText !== null && this.statusText !== undefined) return
+    if (this.ownStatus !== null) return
+
+    const object = global.scene.createSceneObject("HoloDisplays Status")
+    object.setParent(this.getSceneObject())
+    // A little below eye level and a metre out, so it does not sit on top of
+    // the panels when they do appear.
+    object.getTransform().setLocalPosition(new vec3(0, -25, -this.panelDistanceCm))
+
+    const text = object.createComponent("Component.Text")
+    text.text = "starting…"
+    text.size = 36
+    text.horizontalAlignment = HorizontalAlignment.Center
+    this.ownStatus = text
+  }
+
   private setStatus(text: string, connected: boolean): void {
     print(`HoloDisplays: ${text}`)
-    if (this.statusText === null || this.statusText === undefined) return
-    this.statusText.text = text
-    this.statusText.textFill.color = connected
+
+    const label = (this.statusText !== null && this.statusText !== undefined)
+      ? this.statusText
+      : this.ownStatus
+    if (label === null || label === undefined) return
+
+    label.text = text
+    label.textFill.color = connected
       ? new vec4(0.32, 0.81, 0.4, 1)
       : new vec4(1, 0.42, 0.42, 1)
   }
