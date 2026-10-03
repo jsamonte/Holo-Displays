@@ -173,13 +173,11 @@ export class HoloDisplays extends BaseScriptComponent {
         if (ip.length > 0) this.settings.setHostIp(ip)
         if (port !== null) this.settings.setPort(port)
 
-        this.settings.askForDisplayCount(
-          this.settings.getDisplayCount(this.displayCount),
-          (count) => {
-            this.settings.setDisplayCount(count)
-            this.connectNow()
-          }
-        )
+        // Only ever one keyboard. Opening a second from inside the first's
+        // callback leaves the lens stuck with no keyboard and no way to answer
+        // or retry — which is exactly what happened. The display count comes
+        // from the inspector instead, and can be changed there.
+        this.connectNow()
       })
 
       // If no keyboard ever opens, fall back to the inspector values rather

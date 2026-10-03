@@ -406,13 +406,44 @@ Write-Host "  driver: $inf"
 Write-Host ''
 
 try {
+    # Trust the driver's publisher first.
+    #
+    # The driver is signed with a commercial certificate rather than a Microsoft
+    # one, so Windows will not accept it until that certificate is in the
+    # machine's Trusted Publisher and Trusted Root stores. On x64 this is all it
+    # takes. On ARM64 it is not enough and nothing here can make it enough,
+    # because ARM64 accepts only Windows/WHQL/Store signatures.
+    $cat = Join-Path (Split-Path $inf) 'mttvdd.cat'
+    if (Test-Path $cat) {
+        Write-Host 'Trusting the driver publisher...'
+        try {
+            $sig = Get-AuthenticodeSignature $cat
+            if ($sig.SignerCertificate -ne $null) {
+                Write-Host ("  certificate: " + $sig.SignerCertificate.Subject)
+                foreach ($name in @('TrustedPublisher','Root')) {
+                    $store = New-Object System.Security.Cryptography.X509Certificates.X509Store($name, 'LocalMachine')
+                    $store.Open('ReadWrite')
+                    $store.Add($sig.SignerCertificate)
+                    $store.Close()
+                    Write-Host "  added to LocalMachine\$name"
+                }
+            }
+        } catch {
+            Write-Host "  could not import the certificate: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Host ''
     Write-Host 'Staging the driver package...'
     $add = & pnputil.exe /add-driver "$inf" /install 2>&1 | Out-String
     Write-Host $add
 
     if ($LASTEXITCODE -ne 0) {
         if ($add -match '0x800B0109|not trusted') {
-            Finish 'FAIL Windows rejected the signature. On ARM64 only WHQL/Store-signed drivers are accepted, and this driver is signed with a commercial certificate. Installing it here needs Secure Boot turned off. See docs/SETUP.md.'
+            if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') {
+                Finish 'FAIL Windows rejected the signature. On ARM64 only WHQL/Store-signed drivers are accepted, and this one carries a commercial certificate. No certificate import can change that. Run the host on an x64 PC instead, or see docs/SETUP.md section 1.3.'
+            }
+            Finish 'FAIL Windows rejected the signature even after trusting the publisher. Check whether Secure Boot policy or a WDAC/corporate policy is blocking unsigned-by-Microsoft drivers on this machine.'
         }
         Finish "FAIL pnputil returned $LASTEXITCODE"
     }

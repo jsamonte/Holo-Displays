@@ -2556,8 +2556,6 @@
     hostPort: true
     displayCount: true
     askEveryLaunch: true
-    internetModule: true
-    remoteMediaModule: true
     cameraObject: true
     statusText: true
     panelPrefab: true
@@ -2578,8 +2576,8 @@
       hostPort: !<float> 8880.000000
       displayCount: !<float> 2.000000
       askEveryLaunch: false
-      internetModule: !<reference.InternetModule> 00000000-0000-0000-0000-000000000000
-      remoteMediaModule: !<reference.RemoteMediaModule> 00000000-0000-0000-0000-000000000000
+      internetModule: !<reference.InternetModule> 641fb0fa-fb35-4e5e-8cc6-c58b3b7d7dcf
+      remoteMediaModule: !<reference.RemoteMediaModule> 4c549597-ed5e-4dc7-8501-4e512ecde40c
       cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       statusText: !<reference.Text> 00000000-0000-0000-0000-000000000000
       panelPrefab: !<reference.ObjectPrefab> 00000000-0000-0000-0000-000000000000
