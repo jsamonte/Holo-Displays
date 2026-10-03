@@ -54,6 +54,11 @@ export class HoloDisplays extends BaseScriptComponent {
   // ---- panels ------------------------------------------------------------
 
   @input
+  @hint("Optional. A prefab with a UI Kit Frame on it adds drag and resize.")
+  @allowUndefined
+  panelPrefab!: ObjectPrefab
+
+  @input
   @hint("Optional. Leave empty to use UI Kit's unit plane.")
   @allowUndefined
   panelMesh!: RenderMesh
@@ -229,8 +234,11 @@ export class HoloDisplays extends BaseScriptComponent {
           info,
           this.panelWidthCm,
           this.mesh,
-          this.material
+          this.material,
+          this.panelPrefab
         )
+        panel.onResizeReleased = (aspect, widthCm) =>
+          this.requestResize(info.id, aspect, widthCm)
         this.panels.set(info.id, panel)
         this.placeOnArc(panel.object, index, list.length)
       } else {

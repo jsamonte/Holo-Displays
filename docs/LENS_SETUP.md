@@ -26,14 +26,26 @@ So the lens runs on your own Spectacles via Send to Device, and cannot be
 published. Publishing needs `wss://`, which needs a certificate the glasses
 trust — a separate problem, discussed at the end.
 
-## 2. Add one Scene Object
+## 2. Add the two modules
+
+In the **Asset Browser**, **`+`** → **Modules**, and add:
+
+- **Internet Module**
+- **Remote Media Module**
+
+These two cannot be obtained in code. Only `GestureModule`,
+`MotionControllerModule`, `TextInputModule` and `WorldQueryModule` are
+requireable; `InternetModule` is not, and assuming otherwise is what produced
+the `no InternetModule` error on the first run.
+
+## 3. Add one Scene Object
 
 1. Create an empty **Scene Object**. Call it `HoloDisplays`.
 2. Add the component **HoloDisplays** (`Assets/Scripts/HoloDisplays.ts`).
 
 That is the whole scene. No prefab, no modules, no materials.
 
-## 3. Nothing to set
+## 4. Nothing else to set
 
 **Leave every input alone.** The lens asks for the host address on the glasses
 the first time it runs, using the Spectacles system keyboard, and remembers it.
@@ -55,7 +67,9 @@ The inputs below exist as fallbacks and tuning:
 
 | Input | Default | Note |
 | --- | --- | --- |
-| Internet Module / Remote Media Module | empty | obtained in code |
+| **Internet Module** | **required** | add via Asset Browser + → Modules, then drag it on |
+| **Remote Media Module** | **required** | same |
+| Panel Prefab | empty | supply one with a UI Kit Frame to get drag and resize |
 | Panel Mesh / Panel Material | empty | UI Kit's unit plane and image material |
 | Host Ip / Host Port | fallback only | used if nothing has been entered yet |
 | Display Count | 2 | the default offered when asked |
@@ -72,7 +86,7 @@ The inputs below exist as fallbacks and tuning:
 `127.0.0.1:8800` and `:8880` while open, and the glasses need a routable address
 regardless.
 
-## 4. Run it
+## 5. Run it
 
 1. Start the host and read the IP:port from its window.
 2. **Send to Device.**
@@ -97,16 +111,25 @@ a firewall problem.
 on an arc, live streaming, gaze tiers with hysteresis, frozen last frame when a
 panel goes `off`, and the resolution-change protocol.
 
-**Not yet: drag and corner-resize.** UI Kit's `Frame` is what provides those,
-and it cannot be attached from code — Lens Studio exposes only a generic
-`createComponent("ScriptComponent")`, with no way to bind a particular
-TypeScript class, and SIK and UI Kit never do it either. Panels are currently
-fixed where they spawn.
+**Drag and corner-resize need a prefab.** UI Kit's `Frame` provides both, and it
+cannot be attached from code — Lens Studio exposes only a generic
+`createComponent("ScriptComponent")` with no way to bind a particular TypeScript
+class, and SIK and UI Kit never do it either. Without a prefab, panels are built
+in code and sit where they spawn.
 
-That is the one thing a prefab would buy, and it is why M5 and M7 are not done.
-Adding it later means building a prefab with a `Frame` and having `HoloDisplays`
-clone it instead of constructing panels — `HoloPanel` is already shaped for it,
-and `requestResize` is already written and waiting.
+### Adding drag and resize
+
+1. In **Scene Hierarchy**, create an **Empty Object**, name it `Panel`.
+2. Add component **Frame** (Spectacles UI Kit). Set **Allow Translation** on,
+   **Allow Scaling** on, and **Allow Non Uniform Scaling** **on** — monitors are
+   not square, so the corners must be able to change the aspect.
+3. Drag `Panel` from the hierarchy into the **Asset Browser** to make it a
+   prefab, then delete it from the hierarchy.
+4. Drag that prefab onto the **Panel Prefab** input on `HoloDisplays`.
+
+The lens then clones it per display, uses the Frame for sizing, and sends a
+`resize` to the host when you let go of a corner. Leave the input empty and
+everything still works, just without the interaction.
 
 ## If something is wrong
 

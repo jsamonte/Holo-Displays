@@ -1,3 +1,4 @@
+import {Frame} from "SpectaclesUIKit.lspkg/Scripts/Components/Frame/Frame"
 import {DisplayInfo, Tier} from "./HoloConnection"
 
 /**
@@ -25,24 +26,39 @@ export class HoloPanel {
   private _tier: Tier = "off"
   private _widthCm: number
 
+  /** UI Kit Frame, when the panel came from a prefab that has one. */
+  private readonly frame: Frame | null = null
+
+  /** Fires when the user finishes resizing, with the new aspect and width in cm. */
+  onResizeReleased: ((aspect: number, widthCm: number) => void) | null = null
+
   constructor(
     parent: SceneObject,
     info: DisplayInfo,
     widthCm: number,
     mesh: RenderMesh,
-    material: Material
+    material: Material,
+    prefab?: ObjectPrefab
   ) {
     this._info = info
     this._widthCm = widthCm
 
-    this.object = global.scene.createSceneObject(`Panel ${info.id} ${info.name}`)
-    this.object.setParent(parent)
+    if (prefab !== undefined && prefab !== null) {
+      // A prefab can carry a UI Kit Frame, which is the only way to get drag
+      // and corner-resize: Frame is a TypeScript component and Lens Studio has
+      // no way to attach one of those at run time.
+      this.object = prefab.instantiate(parent)
+      this.object.name = `Panel ${info.id} ${info.name}`
+      this.frame = this.object.getComponent(Frame.getTypeName()) as Frame
+      if (this.frame !== null && this.frame !== undefined) {
+        this.frame.onScalingEnd.add(() => this.handleScalingEnd())
+      }
+    } else {
+      this.object = global.scene.createSceneObject(`Panel ${info.id} ${info.name}`)
+      this.object.setParent(parent)
+    }
 
-    this.visual = this.object.createComponent("Component.RenderMeshVisual")
-    this.visual.mesh = mesh
-    // Clone, or every panel shares one material and shows whichever display
-    // drew last.
-    this.visual.mainMaterial = material.clone()
+    this.visual = this.findOrCreateVisual(mesh, material)
 
     // A small label that only shows while a resolution change is in flight.
     this.statusObject = global.scene.createSceneObject("Switching")
@@ -76,16 +92,51 @@ export class HoloPanel {
   }
 
   /**
+   * Reuses the prefab's mesh visual if it has one, otherwise makes a plane.
+   *
+   * A prefab built for this will usually already carry the thing that shows the
+   * picture; creating a second one would leave an invisible quad fighting it.
+   */
+  private findOrCreateVisual(mesh: RenderMesh, material: Material): RenderMeshVisual {
+    const existing = this.object.getComponent("Component.RenderMeshVisual") as RenderMeshVisual
+    if (existing !== null && existing !== undefined) {
+      existing.mainMaterial = existing.mainMaterial.clone()
+      return existing
+    }
+
+    const visual = this.object.createComponent("Component.RenderMeshVisual")
+    visual.mesh = mesh
+    // Clone, or every panel shares one material and shows whichever display
+    // drew last.
+    visual.mainMaterial = material.clone()
+    return visual
+  }
+
+  /**
    * Sizes the panel to an aspect ratio, keeping its width.
    *
-   * The mesh is a unit plane, so local scale is the size in centimetres
-   * directly — no hidden base dimension to account for.
+   * With a Frame, size is the Frame's innerSize in centimetres. Without one,
+   * the mesh is a unit plane so local scale is the size directly — in both
+   * cases there is no hidden base dimension.
    */
   applyAspect(aspect: number, widthCm?: number): void {
     if (widthCm !== undefined) this._widthCm = widthCm
     const w = this._widthCm
     const h = aspect > 0 ? w / aspect : w
-    this.object.getTransform().setLocalScale(new vec3(w, h, 1))
+
+    if (this.frame !== null && this.frame !== undefined) {
+      this.frame.innerSize = new vec2(w, h)
+    } else {
+      this.object.getTransform().setLocalScale(new vec3(w, h, 1))
+    }
+  }
+
+  private handleScalingEnd(): void {
+    if (this.frame === null || this.onResizeReleased === null) return
+    const size = this.frame.innerSize
+    if (size.y <= 0) return
+    this._widthCm = size.x
+    this.onResizeReleased(size.x / size.y, size.x)
   }
 
   setTexture(texture: Texture): void {
