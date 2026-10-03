@@ -1,7 +1,7 @@
 # Lens scene setup
 
-The TypeScript is written and typechecked. Lens Studio's editor cannot be
-driven from outside, so the scene wiring is yours. This is the exact list.
+Three steps. The panels build themselves in code, so there is no prefab to
+assemble and nothing to wire.
 
 Project: `Spectacles/Holo-Display/Holo-Display.esproj` (Lens Studio 5.15.4).
 Scripts are already in `Assets/Scripts/`:
@@ -9,171 +9,153 @@ Scripts are already in `Assets/Scripts/`:
 | File | Role |
 | --- | --- |
 | `HoloConnection.ts` | WebSocket client and protocol. Not a component. |
-| `HoloPanel.ts` | One floating monitor. Goes on the panel prefab root. |
-| `HoloDisplays.ts` | Controller. Goes on one scene object. |
+| `HoloPanel.ts` | One floating monitor. Plain class, built at run time. |
+| `HoloDisplays.ts` | The only component you place in the scene. |
 
 ---
 
-## 1. Project settings
+## 1. Turn on Experimental APIs
 
 **Project Settings → enable Experimental APIs.**
 
-Required for `ws://`. The lens becomes unpublishable, which is the accepted
-trade for v1 — see [SETUP.md §3.2](SETUP.md).
+Required for `ws://`. Snap's docs: *"Using insecure connections (`ws`) requires
+enabling Experimental APIs. While these Lenses are suitable for testing
+purposes, they cannot be published."*
 
-## 2. Asset modules — nothing to do
+So the lens runs on your own Spectacles via Send to Device, and cannot be
+published. Publishing needs `wss://`, which needs a certificate the glasses
+trust — a separate problem, discussed at the end.
 
-An earlier version of this document asked you to add **Internet Module** and
-**Remote Media Module** assets by hand. That is no longer necessary.
-`HoloDisplays` obtains both in code with
-`require("LensStudio:InternetModule")` and
-`require("LensStudio:RemoteMediaModule")`, the same way SIK and UI Kit get
-`GestureModule` and `TextInputModule`.
+## 2. Add one Scene Object
 
-The two inspector inputs still exist and still take priority. They are an
-override for a project that wants a specific instance, and an escape hatch if a
-require name is ever wrong. **Leave them empty.**
+1. Create an empty **Scene Object**. Call it `HoloDisplays`.
+2. Add the component **HoloDisplays** (`Assets/Scripts/HoloDisplays.ts`).
 
-From Lens Studio 5.9 the WebSocket APIs live on `InternetModule`, so an older
-tutorial telling you to use a global `WebSocket` is out of date.
+That is the whole scene. No prefab, no modules, no materials.
 
-## 3. The panel prefab
+## 3. Set two fields
 
-Build this once; the controller instantiates one per display.
+| Input | Value |
+| --- | --- |
+| **Host Ip** | the host machine's **LAN IP**, shown in large text in the host window |
+| **Host Port** | `8800` |
 
-1. In the Scene Hierarchy, create an empty **Scene Object**, name it `Panel`.
-2. Add component **Frame** (Spectacles UI Kit) to it. Set:
+Everything else can stay at its default:
 
-   | Property | Value | Why |
-   | --- | --- | --- |
-   | Inner Size | `80, 50` | centimetres; the controller overwrites this per display's aspect |
-   | Allow Translation | on | drag to move |
-   | Allow Scaling | on | corner resize |
-   | Allow Non Uniform Scaling | **on** | monitors are not square; corners must change aspect |
-   | Auto Scale Content | on | the image follows the frame |
-   | Minimum Size | `20, 12` | |
-   | Maximum Size | `300, 200` | a 3 m panel is already absurd |
-   | Appearance | `Large` | far-field interaction |
+| Input | Default | Note |
+| --- | --- | --- |
+| Internet Module / Remote Media Module | empty | obtained in code |
+| Panel Mesh / Panel Material | empty | UI Kit's unit plane and image material |
+| Camera Object | empty | the scene's camera is found automatically |
+| Status Text | empty | optional, but handy — any Text object |
+| Panel Width Cm | 80 | 0.8 m wide |
+| Panel Distance Cm | 100 | 1 m away |
+| Arc Degrees | 50 | spread across several displays |
+| Full / Low / Hysteresis Degrees | 25 / 45 / 5 | gaze tiers |
+| Pixels Per Metre | 2400 | 0.8 m panel ≈ 1920 px |
 
-3. As a **child** of `Panel`, add a **Scene Object** named `Screen` with an
-   **Image** component.
-   - Set the Frame's **Content** input to this `Screen` object.
-   - Give the Image any material that has a `baseTex` (the default Image
-     material is fine). The script clones it per panel so panels do not share a
-     texture.
-4. As another child, add a **Text** object named `Switching`, text
-   `switching…`. Leave it enabled; the script hides it on start and shows it
-   only while a resolution change is in flight.
-5. Add component **HoloPanel** (`Assets/Scripts/HoloPanel.ts`) to `Panel` and
-   wire:
+**Host Ip must be the LAN address, not `127.0.0.1`.** Lens Studio holds both
+`127.0.0.1:8800` and `:8880` while open, and the glasses need a routable address
+regardless.
 
-   | Input | Set to |
-   | --- | --- |
-   | Frame | the Frame component on `Panel` |
-   | Image | the Image on `Screen` |
-   | Switching Label | the `Switching` object |
+## 4. Run it
 
-6. Drag `Panel` into the Asset Browser to make it a **Prefab**. Delete the
-   instance from the hierarchy — the controller spawns them.
+1. Start the host and read the IP:port from its window.
+2. **Send to Device.**
 
-## 4. The controller
+Expect: status goes `connecting` → `connected` → `N displays`, and a panel
+appears per streamed monitor on a gentle arc about 1 m away, showing the
+desktop live.
 
-1. Create an empty Scene Object named `HoloDisplays`.
-2. Add component **HoloDisplays** (`Assets/Scripts/HoloDisplays.ts`).
-3. Wire the inputs:
+With no virtual monitors installed, start the host with
+`HOLO_STREAM_PRIMARY=1` and it will offer the built-in display instead. That is
+enough to see the whole thing work.
 
-   | Input | Value |
-   | --- | --- |
-   | Host Ip | **your laptop's LAN IP**, shown in large text in the host window |
-   | Host Port | `8800`, or whatever the host says it bound |
-   | Internet Module | **leave empty** — obtained in code (§2) |
-   | Remote Media Module | **leave empty** — obtained in code (§2) |
-   | Camera Object | your scene's Camera (optional; it searches if empty) |
-   | Status Text | a Text object somewhere visible (optional but useful) |
-   | Panel Prefab | the `Panel` prefab from step 3 |
-   | Panel Width Cm | `80` |
-   | Panel Distance Cm | `100` |
-   | Arc Degrees | `50` |
-   | Full Degrees | `25` |
-   | Low Degrees | `45` |
-   | Hysteresis Degrees | `5` |
-   | Pixels Per Metre | `2400` |
-
-**Host Ip must be the LAN address, not `127.0.0.1`.** Lens Studio itself holds
-`127.0.0.1:8800` while open; the glasses need the routable address anyway.
-
-## 5. Run it
-
-1. Start the host (`host/open_in_godot.bat`, then Play).
-2. Read the IP:port from the host window.
-3. **Send to Device** in Lens Studio.
-
-Expected: the status text goes `connecting` → `connected` → `N displays`, and a
-panel appears per streamed virtual monitor on a gentle arc about 1 m away.
+**Use a hotspot, not school or office wifi.** Those almost always run AP
+isolation, which blocks device-to-device traffic silently and looks exactly like
+a firewall problem.
 
 ---
 
-## What each milestone looks like when it works
+## What works now, and what does not
 
-- **M4** — one panel showing a virtual monitor, updating live.
-- **M5** — one panel per display; drag moves them, corners resize them.
-- **M6** — turn your head and the host's rows change `full` → `low` → `off`.
-  Panels you look away from keep their last frame, frozen. They must never go
-  blank.
-- **M7** — resize a panel and release: Windows changes that monitor's real
-  resolution, then the panel snaps to the new aspect exactly.
+**Working:** connection, reconnect with backoff, one panel per display laid out
+on an arc, live streaming, gaze tiers with hysteresis, frozen last frame when a
+panel goes `off`, and the resolution-change protocol.
 
-## Notes on the implementation
+**Not yet: drag and corner-resize.** UI Kit's `Frame` is what provides those,
+and it cannot be attached from code — Lens Studio exposes only a generic
+`createComponent("ScriptComponent")`, with no way to bind a particular
+TypeScript class, and SIK and UI Kit never do it either. Panels are currently
+fixed where they spawn.
 
-**Frame pairing.** The host sends a JSON header then the JPEG as the next
-binary message. `HoloConnection` holds the header and pairs it with whatever
-binary arrives next, so the lens never slices a binary blob. A binary message
-with no pending header is dropped.
+That is the one thing a prefab would buy, and it is why M5 and M7 are not done.
+Adding it later means building a prefab with a `Frame` and having `HoloDisplays`
+clone it instead of constructing panels — `HoloPanel` is already shaped for it,
+and `requestResize` is already written and waiting.
 
-**Acks are sent after the texture is on screen**, not on arrival. The host
-allows one frame in flight per display, so acking early would defeat the
-backpressure and let latency grow. A decode failure still acks, otherwise that
-display stalls until the host's 500 ms timeout.
+## If something is wrong
 
-**Blob to texture** uses `DynamicResource.createWithBuffer(await blob.bytes())`,
-falling back to `internetModule.makeResourceFromBlob` on older runtimes —
-that call is deprecated as of Lens Scripting 362.
+| Symptom | Likely cause |
+| --- | --- |
+| Status stuck on `connecting` | Experimental APIs off, wrong IP, firewall, or AP isolation |
+| Connects then drops immediately | Pointed at `127.0.0.1` and reached Lens Studio instead of the host |
+| Log says `no panel mesh` / `no panel material` | My guess at UI Kit's asset paths was wrong. Drag any plane mesh and any unlit material onto **Panel Mesh** and **Panel Material** — that is what those inputs are for |
+| Log says `no InternetModule` / `no RemoteMediaModule` | The require name differs on your Lens Studio version. Add the module in the Asset Browser and set the matching input |
+| Panels appear but stay black | Host has nothing ticked to stream, or every panel is `off` — look at one |
+| Panels face away or are edge-on | See the note below |
+| Panels never drop to `off` | No camera found; check the log |
+| Memory climbs over a long session | Look at `HoloPanel.setTexture` first |
 
-**Gaze** uses head direction, not eye tracking, and subtracts each panel's
-angular half-size so a large panel counts as visible when any part of it is near
-the centre of view. Hysteresis widens whichever band a panel is already in, so
-glancing past an edge does not flip it back and forth. Tiers are sent only on
-change.
-
-**Resize** scores modes by aspect first (log-ratio, so 16:9 does not become
-portrait), then by how close the mode's width is to
-`panelWidthMetres * pixelsPerMetre`. If the best match is the current mode it
-sends nothing and just tidies the aspect.
-
-**Panel facing is the one thing I could not verify without the editor.**
-`placeOnArc` aims each panel with `quat.lookAt(toUser, vec3.up())` rather than
-deriving a Y rotation from the arc angle, because working that angle out by hand
-means guessing a sign convention and getting it wrong points every panel away
-from you while looking perfectly reasonable in the source. `lookAt` at a known
-target cannot have that bug — but whether Lens Studio treats a plane's visible
-face as `+Z` is still an assumption. If the panels come up backwards or
-edge-on, negate the vector:
+**Panel facing is the main thing I could not verify without running it.**
+`placeOnArc` aims each panel with `quat.lookAt` at the user rather than deriving
+a rotation from the arc angle, because hand-deriving that means guessing a sign
+convention, and getting it wrong turns every panel away while looking perfectly
+reasonable in the source. If they come up backwards, negate the vector:
 
 ```ts
 const toUser = new vec3(x, 0, z).normalize()   // was -x, -z
 ```
 
-That is the whole fix. Everything else about the layout is independent of it.
+## Notes on the implementation
 
-## Troubleshooting
+**Frame pairing.** The host sends a JSON header then the JPEG as the next
+binary message. `HoloConnection` holds the header and pairs it with whatever
+binary arrives next, so the lens never slices a blob. Binary with no pending
+header is dropped.
 
-| Symptom | Likely cause |
-| --- | --- |
-| Status stuck on `connecting` | Experimental APIs off, wrong IP, firewall, or AP isolation |
-| Connects then immediately drops | Pointed at `127.0.0.1` and reached Lens Studio instead of the host |
-| Panels appear but stay black | Host has no display ticked, or all panels are `off` — look at one |
-| Panels never drop to `off` | Camera Object not set and no camera found; check the log |
-| Panels are edge-on or facing away | See the note below — one-line fix in `placeOnArc` |
-| Log says "no InternetModule" / "no RemoteMediaModule" | The require name is wrong on your Lens Studio version. Add the module in the Asset Browser and set the matching inspector input — that override exists for this |
-| Resize does nothing | That mode is not in VDD's resolution list ([SETUP.md §1.5](SETUP.md)) |
-| Memory grows over a long session | Check that old textures are being released; see `HoloPanel.setTexture` |
+**Acks go out after the texture is on screen**, not on arrival. The host allows
+one frame in flight per display, so acking early would defeat the backpressure.
+A failed decode still acks, or that display stalls until the host's 500 ms
+timeout.
+
+**Blob to texture** uses `DynamicResource.createWithBuffer(await blob.bytes())`,
+falling back to `internetModule.makeResourceFromBlob` — deprecated as of Lens
+Scripting 362 — on older runtimes.
+
+**Gaze** uses head direction, not eye tracking, and subtracts each panel's
+angular half-size so a large panel counts as visible when any part of it is near
+the centre of view. Hysteresis widens whichever band a panel is already in, so a
+glance past an edge does not flip the tier. Tiers are sent only on change.
+
+**Panels are a unit plane scaled in centimetres**, so local scale is the panel
+size directly, with no hidden base dimension.
+
+## On publishing this lens
+
+Two things block it, one easy and one not.
+
+**Entering the host address at run time: solvable.** Spectacles has a System AR
+Keyboard (`TextInputSystem`, with `Num` and `Url` keyboard types), so the lens
+can ask for the address and remember it instead of carrying it in the inspector.
+
+**`wss://`: the real obstacle.** Publishing requires a secure connection, and a
+secure connection requires a certificate the glasses trust. You cannot get a
+publicly trusted certificate for a private LAN IP — no CA issues them. Snap's
+docs do not say whether self-signed certificates are accepted, which usually
+means they are not, and that is worth testing before designing around it.
+
+If self-signed is rejected, the options are a cloud relay with a real
+certificate (works anywhere, but it is a server to run and your screen contents
+travel through it) or a public DNS name with a real certificate resolving to a
+private address, the trick Plex uses.

@@ -1,39 +1,63 @@
-import {Frame} from "SpectaclesUIKit.lspkg/Scripts/Components/Frame/Frame"
 import {DisplayInfo, Tier} from "./HoloConnection"
 
 /**
- * One floating monitor.
+ * One floating monitor, built entirely in code.
  *
- * Goes on the root of the panel prefab. The UI Kit Frame handles drag and
- * corner-scale; this adds the display's picture, the gaze tier, and the
- * translation from "how big did they make the panel" to "what resolution should
- * Windows switch to".
+ * Deliberately NOT a @component and NOT a prefab. Lens Studio can create scene
+ * objects, mesh visuals and text at run time, so a panel needs no authored
+ * asset at all — which means the lens scene is one empty object with
+ * HoloDisplays on it, and nothing to wire by hand.
  *
- * Lens Studio world units are centimetres, so 100 = 1 m. Frame.innerSize is in
- * local-space centimetres too.
+ * What that costs: UI Kit's Frame cannot be attached in code (Lens Studio only
+ * exposes a generic `createComponent("ScriptComponent")`, with no way to bind a
+ * particular TypeScript class), so these panels do not drag or corner-resize
+ * yet. The streaming works; the interaction is the next step.
+ *
+ * Units are centimetres, so 100 = 1 m.
  */
-@component
-export class HoloPanel extends BaseScriptComponent {
-  @input
-  @hint("UI Kit Frame on this prefab. Provides drag and corner resize.")
-  frame!: Frame
+export class HoloPanel {
+  readonly object: SceneObject
+  private readonly visual: RenderMeshVisual
+  private readonly statusObject: SceneObject
+  private readonly statusText: Text
 
-  @input
-  @hint("Image showing the streamed desktop. Should be the Frame's content.")
-  image!: Image
-
-  @input
-  @hint("Label shown while a resolution change is in flight.")
-  switchingLabel!: SceneObject
-
-  // --- display state ---
-  private _info: DisplayInfo | null = null
+  private _info: DisplayInfo
   private _tier: Tier = "off"
+  private _widthCm: number
 
-  /** Fires when the user finishes scaling, with the panel's new aspect and width in cm. */
-  onResizeReleased: ((aspect: number, widthCm: number) => void) | null = null
+  constructor(
+    parent: SceneObject,
+    info: DisplayInfo,
+    widthCm: number,
+    mesh: RenderMesh,
+    material: Material
+  ) {
+    this._info = info
+    this._widthCm = widthCm
 
-  get info(): DisplayInfo | null {
+    this.object = global.scene.createSceneObject(`Panel ${info.id} ${info.name}`)
+    this.object.setParent(parent)
+
+    this.visual = this.object.createComponent("Component.RenderMeshVisual")
+    this.visual.mesh = mesh
+    // Clone, or every panel shares one material and shows whichever display
+    // drew last.
+    this.visual.mainMaterial = material.clone()
+
+    // A small label that only shows while a resolution change is in flight.
+    this.statusObject = global.scene.createSceneObject("Switching")
+    this.statusObject.setParent(this.object)
+    this.statusText = this.statusObject.createComponent("Component.Text")
+    this.statusText.text = "switching…"
+    this.statusText.size = 24
+    this.statusObject.enabled = false
+    // Sit slightly in front of the panel so it is not z-fighting the image.
+    this.statusObject.getTransform().setLocalPosition(new vec3(0, 0, 1))
+
+    this.applyAspect(info.w / info.h)
+  }
+
+  get info(): DisplayInfo {
     return this._info
   }
 
@@ -45,69 +69,50 @@ export class HoloPanel extends BaseScriptComponent {
     this._tier = value
   }
 
-  onAwake(): void {
-    this.setSwitching(false)
-
-    this.createEvent("OnStartEvent").bind(() => {
-      // Give each panel its own material instance, or every panel ends up
-      // showing whichever display drew last.
-      if (this.image !== null && this.image.mainMaterial !== null) {
-        this.image.mainMaterial = this.image.mainMaterial.clone()
-      }
-
-      if (this.frame !== null) {
-        this.frame.onScalingEnd.add(() => this.handleScalingEnd())
-      }
-    })
-  }
-
-  /**
-   * Sizes the panel to the display's aspect and remembers which display it is.
-   * Omit widthCm to keep whatever width the panel already has, which is what
-   * you want when a display's mode changed but the user sized the panel.
-   */
-  configure(info: DisplayInfo, widthCm?: number): void {
+  /** Points this panel at a (possibly changed) display. */
+  configure(info: DisplayInfo): void {
     this._info = info
-    this.applyAspect(info.w / info.h, widthCm)
-  }
-
-  /** Snaps the panel to an exact aspect ratio, keeping its current width. */
-  applyAspect(aspect: number, widthCm?: number): void {
-    if (this.frame === null) return
-    const w = widthCm ?? this.frame.innerSize.x
-    this.frame.innerSize = new vec2(w, w / aspect)
+    this.applyAspect(info.w / info.h)
   }
 
   /**
-   * Swaps in a new frame.
+   * Sizes the panel to an aspect ratio, keeping its width.
    *
-   * Assigning baseTex is what releases the previous texture: nothing else holds
-   * a reference, so it becomes collectable immediately. An earlier version kept
-   * the texture in a field as well, which looked like leak protection but only
-   * added a second reference to the live one and did nothing for the old.
-   *
-   * At 15 fps this runs 900 times a minute per panel, so if memory does climb
-   * over a long session, this is the first place to look.
+   * The mesh is a unit plane, so local scale is the size in centimetres
+   * directly — no hidden base dimension to account for.
    */
+  applyAspect(aspect: number, widthCm?: number): void {
+    if (widthCm !== undefined) this._widthCm = widthCm
+    const w = this._widthCm
+    const h = aspect > 0 ? w / aspect : w
+    this.object.getTransform().setLocalScale(new vec3(w, h, 1))
+  }
+
   setTexture(texture: Texture): void {
-    if (this.image === null) return
-    this.image.mainPass.baseTex = texture
+    // Assigning baseTex is what releases the previous frame; nothing else holds
+    // a reference to it. At 15 fps this runs 900 times a minute per panel, so
+    // if memory climbs over a long session, look here first.
+    this.visual.mainPass.baseTex = texture
   }
 
   setSwitching(on: boolean): void {
-    if (this.switchingLabel !== null) this.switchingLabel.enabled = on
+    this.statusObject.enabled = on
+  }
+
+  destroy(): void {
+    this.object.destroy()
   }
 
   /**
    * Angle in degrees between a forward vector and this panel, reduced by the
    * panel's angular half-size.
    *
-   * Subtracting the half-size is what makes a big panel count as "being looked
+   * Subtracting the half-size is what lets a large panel count as "being looked
    * at" when any part of it is near the centre of view, rather than only its
    * exact middle.
    */
   angleFrom(cameraPosition: vec3, cameraForward: vec3): number {
-    const centre = this.getTransform().getWorldPosition()
+    const centre = this.object.getTransform().getWorldPosition()
     const toPanel = centre.sub(cameraPosition)
     const distance = toPanel.length
     if (distance < 0.001) return 0
@@ -115,18 +120,10 @@ export class HoloPanel extends BaseScriptComponent {
     const cos = Math.max(-1, Math.min(1, toPanel.normalize().dot(cameraForward)))
     const angle = (Math.acos(cos) * 180) / Math.PI
 
-    // Half the panel's diagonal, as an angle at this distance.
-    const size = this.frame !== null ? this.frame.innerSize : new vec2(40, 25)
-    const halfDiagonal = Math.sqrt(size.x * size.x + size.y * size.y) / 2
+    const scale = this.object.getTransform().getLocalScale()
+    const halfDiagonal = Math.sqrt(scale.x * scale.x + scale.y * scale.y) / 2
     const halfAngle = (Math.atan2(halfDiagonal, distance) * 180) / Math.PI
 
     return Math.max(0, angle - halfAngle)
-  }
-
-  private handleScalingEnd(): void {
-    if (this.frame === null || this.onResizeReleased === null) return
-    const size = this.frame.innerSize
-    if (size.y <= 0) return
-    this.onResizeReleased(size.x / size.y, size.x)
   }
 }

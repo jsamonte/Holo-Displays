@@ -35,7 +35,8 @@
     internetModule: false
     lowDegrees: false
     panelDistanceCm: false
-    panelPrefab: false
+    panelMaterial: false
+    panelMesh: false
     panelWidthCm: false
     pixelsPerMetre: false
     remoteMediaModule: false
@@ -55,7 +56,8 @@
       remoteMediaModule: !<reference.RemoteMediaModule> 00000000-0000-0000-0000-000000000000
       cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       statusText: !<reference.Text> 00000000-0000-0000-0000-000000000000
-      panelPrefab: !<reference.ObjectPrefab> 00000000-0000-0000-0000-000000000000
+      panelMesh: !<reference.RenderMesh> 00000000-0000-0000-0000-000000000000
+      panelMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
       panelWidthCm: !<float> 80.000000
       panelDistanceCm: !<float> 100.000000
       arcDegrees: !<float> 50.000000
@@ -73,7 +75,8 @@
     - '// @input Asset.RemoteMediaModule remoteMediaModule {"hint":"Optional. Left empty, the module is obtained in code."}'
     - '// @input SceneObject cameraObject {"hint":"Camera the gaze test uses. Leave empty to find the main camera."}'
     - '// @input Component.Text statusText {"hint":"Text showing connection state."}'
-    - '// @input Asset.ObjectPrefab panelPrefab {"hint":"Prefab with a HoloPanel component on its root."}'
+    - "// @input Asset.RenderMesh panelMesh {\"hint\":\"Optional. Leave empty to use UI Kit's unit plane.\"}"
+    - "// @input Asset.Material panelMaterial {\"hint\":\"Optional. Leave empty to use UI Kit's image material.\"}"
     - '// @input float panelWidthCm = 80 {"hint":"Panel width in centimetres. 80 = 0.8 m."}'
     - '// @input float panelDistanceCm = 100 {"hint":"Distance from the user in centimetres. 100 = 1 m."}'
     - '// @input float arcDegrees = 50 {"hint":"Total spread of the panel arc, in degrees."}'

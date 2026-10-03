@@ -45,8 +45,14 @@ export class HoloDisplays extends BaseScriptComponent {
   // ---- panels ------------------------------------------------------------
 
   @input
-  @hint("Prefab with a HoloPanel component on its root.")
-  panelPrefab!: ObjectPrefab
+  @hint("Optional. Leave empty to use UI Kit's unit plane.")
+  @allowUndefined
+  panelMesh!: RenderMesh
+
+  @input
+  @hint("Optional. Leave empty to use UI Kit's image material.")
+  @allowUndefined
+  panelMaterial!: Material
 
   @input
   @hint("Panel width in centimetres. 80 = 0.8 m.")
@@ -97,9 +103,12 @@ export class HoloDisplays extends BaseScriptComponent {
   private internet!: InternetModule
   private remoteMedia!: RemoteMediaModule
 
+  /** The mesh and material every panel is built from. */
+  private mesh!: RenderMesh
+  private material!: Material
+
   private connection: HoloConnection | null = null
-  private panels: Map<number, SceneObject> = new Map()
-  private components: Map<number, HoloPanel> = new Map()
+  private panels: Map<number, HoloPanel> = new Map()
   private camera: Camera | null = null
   private gazeAccumulator = 0
 
@@ -111,6 +120,7 @@ export class HoloDisplays extends BaseScriptComponent {
 
   private start(): void {
     if (!this.resolveModules()) return
+    if (!this.resolvePanelAssets()) return
 
     this.camera = this.resolveCamera()
     if (this.camera === null) {
@@ -144,40 +154,30 @@ export class HoloDisplays extends BaseScriptComponent {
     list.forEach((info, index) => {
       seen.add(info.id)
 
-      let panel = this.components.get(info.id)
-      const isNew = panel === undefined
-      if (panel === undefined) {
-        const object = this.panelPrefab.instantiate(this.getSceneObject())
-        object.name = `Panel ${info.id} ${info.name}`
+      const existing = this.panels.get(info.id)
 
-        const component = object.getComponent(HoloPanel.getTypeName()) as HoloPanel
-        if (component === null || component === undefined) {
-          print(`HoloDisplays: panel prefab has no HoloPanel component`)
-          object.destroy()
-          return
-        }
-
-        component.onResizeReleased = (aspect, widthCm) =>
-          this.requestResize(info.id, aspect, widthCm)
-
-        this.panels.set(info.id, object)
-        this.components.set(info.id, component)
-        panel = component
-
-        this.placeOnArc(object, index, list.length)
+      if (existing === undefined) {
+        const panel = new HoloPanel(
+          this.getSceneObject(),
+          info,
+          this.panelWidthCm,
+          this.mesh,
+          this.material
+        )
+        this.panels.set(info.id, panel)
+        this.placeOnArc(panel.object, index, list.length)
+      } else {
+        // An existing panel keeps its position and width. Only the aspect is
+        // corrected, since the display's mode may have changed under it.
+        existing.configure(info)
       }
-
-      // New panels get the configured width; existing ones keep whatever width
-      // the user dragged them to, and only their aspect is corrected.
-      panel.configure(info, isNew ? this.panelWidthCm : undefined)
     })
 
     // Remove panels whose display is gone.
-    for (const id of Array.from(this.components.keys())) {
+    for (const id of Array.from(this.panels.keys())) {
       if (seen.has(id)) continue
       this.panels.get(id)?.destroy()
       this.panels.delete(id)
-      this.components.delete(id)
     }
 
     this.setStatus(`${list.length} display${list.length === 1 ? "" : "s"}`, true)
@@ -209,7 +209,7 @@ export class HoloDisplays extends BaseScriptComponent {
   // ---- frames ------------------------------------------------------------
 
   private applyFrame(header: FrameHeader, blob: Blob): void {
-    const panel = this.components.get(header.id)
+    const panel = this.panels.get(header.id)
     if (panel === undefined) return
 
     this.blobToTexture(blob)
@@ -276,7 +276,7 @@ export class HoloDisplays extends BaseScriptComponent {
     const position = transform.getWorldPosition()
     const forward = transform.back // a property, not a method; cameras look down -Z
 
-    this.components.forEach((panel, id) => {
+    this.panels.forEach((panel, id) => {
       const angle = panel.angleFrom(position, forward)
       const tier = this.tierFor(angle, panel.tier)
       if (tier === panel.tier) return
@@ -308,7 +308,7 @@ export class HoloDisplays extends BaseScriptComponent {
    * the panel's physical size in pixels.
    */
   private requestResize(id: number, aspect: number, widthCm: number): void {
-    const panel = this.components.get(id)
+    const panel = this.panels.get(id)
     const info = panel?.info
     if (panel === undefined || info === undefined || info === null) return
     if (info.modes.length === 0) return
@@ -343,7 +343,7 @@ export class HoloDisplays extends BaseScriptComponent {
   }
 
   private onModeChanged(id: number, w: number, h: number, ok: boolean, err?: string): void {
-    const panel = this.components.get(id)
+    const panel = this.panels.get(id)
     if (panel === undefined) return
 
     panel.setSwitching(false)
@@ -383,6 +383,42 @@ export class HoloDisplays extends BaseScriptComponent {
     }
 
     return true
+  }
+
+  /**
+   * Finds the mesh and material panels are built from.
+   *
+   * Prefers the inspector inputs, then falls back to UI Kit's own unit plane
+   * and image material, which are already in the project because the package is
+   * installed. The fallback path is an informed guess at how package assets are
+   * addressed, so if it is wrong the inputs are the fix — a two-drag repair
+   * rather than a dead end, and the log says exactly that.
+   */
+  private resolvePanelAssets(): boolean {
+    this.mesh = this.panelMesh ?? HoloDisplays.tryRequireAsset("SpectaclesUIKit.lspkg/Meshes/Unit Plane.mesh")
+    this.material = this.panelMaterial ?? HoloDisplays.tryRequireAsset("SpectaclesUIKit.lspkg/Materials/Image.mat")
+
+    if (this.mesh === null || this.mesh === undefined) {
+      this.setStatus("no panel mesh", false)
+      print("HoloDisplays: could not load a mesh for the panels. Drag any plane mesh onto the Panel Mesh input.")
+      return false
+    }
+
+    if (this.material === null || this.material === undefined) {
+      this.setStatus("no panel material", false)
+      print("HoloDisplays: could not load a material for the panels. Drag any unlit/image material onto the Panel Material input.")
+      return false
+    }
+
+    return true
+  }
+
+  private static tryRequireAsset(path: string): any {
+    try {
+      return requireAsset(path)
+    } catch (e) {
+      return null
+    }
   }
 
   private static tryRequire(name: string): any {
