@@ -165,7 +165,11 @@ export class HoloDisplays extends BaseScriptComponent {
     // After that the stored answers are used and the lens just connects.
     if (this.askEveryLaunch || !this.settings.hasHost) {
       this.setStatus("enter host address", false)
+
+      let answered = false
+
       this.settings.askForHost(this.settings.getHostIp(this.hostIp), (ip, port) => {
+        answered = true
         if (ip.length > 0) this.settings.setHostIp(ip)
         if (port !== null) this.settings.setPort(port)
 
@@ -177,6 +181,19 @@ export class HoloDisplays extends BaseScriptComponent {
           }
         )
       })
+
+      // If no keyboard ever opens, fall back to the inspector values rather
+      // than sitting on "enter host address" forever with nothing to type
+      // into. A lens that connects to the wrong address is debuggable; one
+      // that waits silently on a keyboard that is not coming is not.
+      this.after(6, () => {
+        if (answered) return
+        if (this.settings.keyboardAppeared) return
+        this.setStatus("no keyboard — using the inspector address", false)
+        print("HoloDisplays: the system keyboard never opened. Falling back to the Host Ip input.")
+        this.connectNow()
+      })
+
       return
     }
 

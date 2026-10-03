@@ -1,3 +1,9 @@
+// Loading this module is what makes the system keyboard exist. Without it,
+// requestKeyboard is silently a no-op: the lens sits on "enter host address"
+// with nothing to type into, which is exactly what happened on the first run.
+// UI Kit's own TextInputField requires it the same way, at file scope.
+require("LensStudio:TextInputModule") // eslint-disable-line @typescript-eslint/no-require-imports
+
 /**
  * Host address and display count, asked for on the glasses and remembered.
  *
@@ -65,6 +71,9 @@ export class HoloSettings {
    * treating a dismissal as confirmation would silently store a half-typed
    * address.
    */
+  /** True once a keyboard has actually opened, so callers can detect "never came". */
+  keyboardAppeared = false
+
   private ask(
     prompt: string,
     initial: string,
@@ -88,12 +97,21 @@ export class HoloSettings {
       onDone(current.trim())
     }
 
+    options.onKeyboardStateChanged = (open: boolean) => {
+      if (open) this.keyboardAppeared = true
+    }
+
     options.onError = (code: number, description: string) => {
       print(`HoloDisplays: keyboard error ${code}: ${description}`)
     }
 
     print(`HoloDisplays: ${prompt}`)
-    global.textInputSystem.requestKeyboard(options)
+
+    try {
+      global.textInputSystem.requestKeyboard(options)
+    } catch (e) {
+      print(`HoloDisplays: requestKeyboard threw: ${e}`)
+    }
   }
 
   /** Asks for the host address, e.g. 192.168.1.42 or 192.168.1.42:8800. */

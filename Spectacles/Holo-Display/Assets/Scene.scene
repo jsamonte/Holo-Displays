@@ -2560,6 +2560,7 @@
     remoteMediaModule: true
     cameraObject: true
     statusText: true
+    panelPrefab: true
     panelMesh: true
     panelMaterial: true
     panelWidthCm: true
@@ -2581,6 +2582,7 @@
       remoteMediaModule: !<reference.RemoteMediaModule> 00000000-0000-0000-0000-000000000000
       cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       statusText: !<reference.Text> 00000000-0000-0000-0000-000000000000
+      panelPrefab: !<reference.ObjectPrefab> 00000000-0000-0000-0000-000000000000
       panelMesh: !<reference.RenderMesh> 00000000-0000-0000-0000-000000000000
       panelMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
       panelWidthCm: !<float> 80.000000
