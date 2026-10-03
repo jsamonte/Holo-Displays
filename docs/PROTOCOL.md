@@ -145,6 +145,27 @@ An `off` panel keeps its last frame on screen, frozen. It must never go blank.
 Sent once the frame is decoded and on screen — not when it arrives. This is what
 makes the backpressure meaningful.
 
+### `set_count`
+
+```json
+{"t":"set_count","n":2}
+```
+
+Asks the host to open or close virtual monitors — `n` is how many should exist,
+0 to 8. The host drives the driver and replies with a fresh `displays` list when
+they settle; there is no direct acknowledgement.
+
+The lens sends this on **every connect**, not only when the number changes,
+because the host may have restarted since it last heard anything. The host
+ignores a request for the count it already has, so reconnecting does not reload
+the driver and blink every monitor.
+
+Changing the count reloads the VDD driver, so all virtual monitors disappear and
+return, and any resolution set on them reverts to default. Expect a gap of a
+couple of seconds and a complete `displays` refresh.
+
+Ignored, with a logged line, if VDD is not installed.
+
 ### `resize`
 
 ```json

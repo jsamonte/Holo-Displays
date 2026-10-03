@@ -236,6 +236,13 @@ public sealed class StreamServer
                 break;
             }
 
+            case "set_count":
+            {
+                int n = msg["n"]?.GetValue<int>() ?? -1;
+                if (n >= 0 && n <= 8) _ = HandleSetCount(n);
+                break;
+            }
+
             default:
                 // Unknown types are ignored on purpose; that is how the
                 // protocol grows without breaking older clients.
@@ -274,6 +281,38 @@ public sealed class StreamServer
         finally
         {
             _resizing.Remove(id);
+        }
+    }
+
+    private int _lastRequestedCount = -1;
+
+    /// <summary>
+    /// Opens or closes virtual monitors on the lens's request.
+    ///
+    /// Ignores a repeat of the count already applied, because the lens sends
+    /// this on every connect: reconnecting should not reload the driver and
+    /// blink every monitor for no reason.
+    /// </summary>
+    private async System.Threading.Tasks.Task HandleSetCount(int wanted)
+    {
+        int current = _displays.Displays.Count(d => d.IsVirtual);
+        if (wanted == current || wanted == _lastRequestedCount) return;
+
+        _lastRequestedCount = wanted;
+        Log?.Invoke($"lens asked for {wanted} virtual display(s), have {current}");
+
+        try
+        {
+            await VddPipe.SetDisplayCountAsync(wanted);
+            // The driver rewrites its XML and reloads itself, so the monitors
+            // go away and come back. Let them settle before re-reading.
+            await System.Threading.Tasks.Task.Delay(2500);
+            _displays.Refresh();     // fires Changed, which sends a fresh displays list
+        }
+        catch (Exception e)
+        {
+            Log?.Invoke($"[color=#ff6b6b]could not set display count: {e.Message}[/color]");
+            _lastRequestedCount = -1;
         }
     }
 

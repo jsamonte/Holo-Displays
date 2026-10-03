@@ -27,7 +27,9 @@
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
     arcDegrees: false
+    askEveryLaunch: false
     cameraObject: false
+    displayCount: false
     fullDegrees: false
     hostIp: false
     hostPort: false
@@ -52,6 +54,8 @@
   DefaultScriptInputs:
     - hostIp: 192.168.1.10
       hostPort: !<float> 8880.000000
+      displayCount: !<float> 2.000000
+      askEveryLaunch: false
       internetModule: !<reference.InternetModule> 00000000-0000-0000-0000-000000000000
       remoteMediaModule: !<reference.RemoteMediaModule> 00000000-0000-0000-0000-000000000000
       cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
@@ -69,8 +73,10 @@
     -
       {}
   InputLines:
-    - "// @input string hostIp = \"192.168.1.10\" {\"hint\":\"Laptop's LAN IP. The host shows this in large text. NOT 127.0.0.1.\"}"
-    - '// @input float hostPort = 8800 {"hint":"Host port. 8800 unless the host says it fell forward to another."}'
+    - '// @input string hostIp = "192.168.1.10" {"hint":"Only a fallback. The address is asked for on the glasses and remembered."}'
+    - '// @input float hostPort = 8800 {"hint":"Fallback port. 8800 unless the host says it fell forward to another."}'
+    - '// @input float displayCount = 2 {"hint":"Virtual monitors to ask the host for. Asked on the glasses the first time."}'
+    - '// @input bool askEveryLaunch {"hint":"Ask for the address and display count every launch, not just the first."}'
     - '// @input Asset.InternetModule internetModule {"hint":"Optional. Left empty, the module is obtained in code."}'
     - '// @input Asset.RemoteMediaModule remoteMediaModule {"hint":"Optional. Left empty, the module is obtained in code."}'
     - '// @input SceneObject cameraObject {"hint":"Camera the gaze test uses. Leave empty to find the main camera."}'

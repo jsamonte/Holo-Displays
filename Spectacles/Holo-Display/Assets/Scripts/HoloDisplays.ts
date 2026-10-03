@@ -1,5 +1,6 @@
 import {DisplayInfo, FrameHeader, HoloConnection, Tier} from "./HoloConnection"
 import {HoloPanel} from "./HoloPanel"
+import {HoloSettings} from "./HoloSettings"
 
 /**
  * Top-level controller: one panel per virtual monitor, gaze-driven stream
@@ -15,12 +16,20 @@ export class HoloDisplays extends BaseScriptComponent {
   // ---- connection --------------------------------------------------------
 
   @input
-  @hint("Laptop's LAN IP. The host shows this in large text. NOT 127.0.0.1.")
+  @hint("Only a fallback. The address is asked for on the glasses and remembered.")
   hostIp: string = "192.168.1.10"
 
   @input
-  @hint("Host port. 8800 unless the host says it fell forward to another.")
+  @hint("Fallback port. 8800 unless the host says it fell forward to another.")
   hostPort: number = 8800
+
+  @input
+  @hint("Virtual monitors to ask the host for. Asked on the glasses the first time.")
+  displayCount: number = 2
+
+  @input
+  @hint("Ask for the address and display count every launch, not just the first.")
+  askEveryLaunch: boolean = false
 
   @input
   @hint("Optional. Left empty, the module is obtained in code.")
@@ -107,6 +116,7 @@ export class HoloDisplays extends BaseScriptComponent {
   private mesh!: RenderMesh
   private material!: Material
 
+  private readonly settings = new HoloSettings()
   private connection: HoloConnection | null = null
   private panels: Map<number, HoloPanel> = new Map()
   private camera: Camera | null = null
@@ -127,14 +137,39 @@ export class HoloDisplays extends BaseScriptComponent {
       print("HoloDisplays: no camera found; gaze tiers will not work")
     }
 
-    const url = `ws://${this.hostIp}:${this.hostPort}`
+    // Ask on the glasses the first time, or whenever the inspector says to.
+    // After that the stored answers are used and the lens just connects.
+    if (this.askEveryLaunch || !this.settings.hasHost) {
+      this.setStatus("enter host address", false)
+      this.settings.askForHost(this.settings.getHostIp(this.hostIp), (ip, port) => {
+        if (ip.length > 0) this.settings.setHostIp(ip)
+        if (port !== null) this.settings.setPort(port)
+
+        this.settings.askForDisplayCount(
+          this.settings.getDisplayCount(this.displayCount),
+          (count) => {
+            this.settings.setDisplayCount(count)
+            this.connectNow()
+          }
+        )
+      })
+      return
+    }
+
+    this.connectNow()
+  }
+
+  private connectNow(): void {
+    const ip = this.settings.getHostIp(this.hostIp)
+    const port = this.settings.getPort(this.hostPort)
+    const url = `ws://${ip}:${port}`
     print(`HoloDisplays: connecting to ${url}`)
 
     this.connection = new HoloConnection(
       this.internet,
       url,
       {
-        onStatus: (text, connected) => this.setStatus(text, connected),
+        onStatus: (text, connected) => this.onStatus(text, connected),
         onDisplays: (list) => this.syncPanels(list),
         onFrame: (header, blob) => this.applyFrame(header, blob),
         onModeChanged: (id, w, h, ok, err) => this.onModeChanged(id, w, h, ok, err)
@@ -143,6 +178,19 @@ export class HoloDisplays extends BaseScriptComponent {
     )
 
     this.connection.connect()
+  }
+
+  /**
+   * Tells the host how many virtual monitors to have, once connected.
+   *
+   * Sent on every connect rather than only on change, because the host may have
+   * restarted or reloaded its driver since the lens last said anything. It is
+   * idempotent on the host side.
+   */
+  private onStatus(text: string, connected: boolean): void {
+    this.setStatus(text, connected)
+    if (!connected) return
+    this.connection?.sendDisplayCount(this.settings.getDisplayCount(this.displayCount))
   }
 
   // ---- panels ------------------------------------------------------------

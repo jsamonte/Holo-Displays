@@ -33,19 +33,33 @@ trust — a separate problem, discussed at the end.
 
 That is the whole scene. No prefab, no modules, no materials.
 
-## 3. Set two fields
+## 3. Nothing to set
 
-| Input | Value |
-| --- | --- |
-| **Host Ip** | the host machine's **LAN IP**, shown in large text in the host window |
-| **Host Port** | `8800` |
+**Leave every input alone.** The lens asks for the host address on the glasses
+the first time it runs, using the Spectacles system keyboard, and remembers it.
+That is deliberate: a lens is built once and run against whichever machine is to
+hand, and every machine has a different LAN IP, so baking one into the inspector
+would be wrong the moment you moved.
 
-Everything else can stay at its default:
+On first launch you will be asked twice:
+
+1. **Host address** — type what the host window shows, e.g. `192.168.1.42` or
+   `192.168.1.42:8800`. Both forms work; the port is optional.
+2. **How many virtual displays** — 0 to 8. This opens and closes monitors on the
+   host.
+
+Both are stored on the device, so later launches connect straight away. To be
+asked again, tick **Ask Every Launch**.
+
+The inputs below exist as fallbacks and tuning:
 
 | Input | Default | Note |
 | --- | --- | --- |
 | Internet Module / Remote Media Module | empty | obtained in code |
 | Panel Mesh / Panel Material | empty | UI Kit's unit plane and image material |
+| Host Ip / Host Port | fallback only | used if nothing has been entered yet |
+| Display Count | 2 | the default offered when asked |
+| Ask Every Launch | off | tick to re-enter the address |
 | Camera Object | empty | the scene's camera is found automatically |
 | Status Text | empty | optional, but handy — any Text object |
 | Panel Width Cm | 80 | 0.8 m wide |

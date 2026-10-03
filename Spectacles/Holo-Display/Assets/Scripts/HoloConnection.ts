@@ -162,4 +162,15 @@ export class HoloConnection {
   sendResize(id: number, w: number, h: number): void {
     this.send({t: "resize", id, w, h})
   }
+
+  /**
+   * Asks the host to change how many virtual monitors exist.
+   *
+   * This is how displays are opened and closed from the glasses. The host
+   * drives the driver; the lens only states what it wants, and finds out what
+   * happened from the `displays` list that follows.
+   */
+  sendDisplayCount(n: number): void {
+    this.send({t: "set_count", n})
+  }
 }
