@@ -6,7 +6,7 @@
 //
 //   node tools/protocol_test.mjs [ws://host:port]
 
-const URL_ = process.argv[2] ?? 'ws://127.0.0.1:8880';
+const URL_ = process.argv[2] ?? 'ws://127.0.0.1:8800';
 const RUN_MS = 9000;
 
 const state = {

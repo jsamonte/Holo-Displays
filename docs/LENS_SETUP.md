@@ -85,7 +85,7 @@ Build this once; the controller instantiates one per display.
    | Input | Value |
    | --- | --- |
    | Host Ip | **your laptop's LAN IP**, shown in large text in the host window |
-   | Host Port | `8880`, or whatever the host says it bound |
+   | Host Port | `8800`, or whatever the host says it bound |
    | Internet Module | **leave empty** — obtained in code (§2) |
    | Remote Media Module | **leave empty** — obtained in code (§2) |
    | Camera Object | your scene's Camera (optional; it searches if empty) |
@@ -100,7 +100,7 @@ Build this once; the controller instantiates one per display.
    | Pixels Per Metre | `2400` |
 
 **Host Ip must be the LAN address, not `127.0.0.1`.** Lens Studio itself holds
-`127.0.0.1:8880` while open; the glasses need the routable address anyway.
+`127.0.0.1:8800` while open; the glasses need the routable address anyway.
 
 ## 5. Run it
 

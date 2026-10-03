@@ -68,7 +68,7 @@
       {}
   InputLines:
     - "// @input string hostIp = \"192.168.1.10\" {\"hint\":\"Laptop's LAN IP. The host shows this in large text. NOT 127.0.0.1.\"}"
-    - '// @input float hostPort = 8880 {"hint":"Host port. 8880 unless the host says it fell forward to another."}'
+    - '// @input float hostPort = 8800 {"hint":"Host port. 8800 unless the host says it fell forward to another."}'
     - '// @input Asset.InternetModule internetModule {"hint":"Optional. Left empty, the module is obtained in code."}'
     - '// @input Asset.RemoteMediaModule remoteMediaModule {"hint":"Optional. Left empty, the module is obtained in code."}'
     - '// @input SceneObject cameraObject {"hint":"Camera the gaze test uses. Leave empty to find the main camera."}'

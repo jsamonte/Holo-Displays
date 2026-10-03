@@ -698,7 +698,7 @@ tutorial telling you to use a global `WebSocket` is out of date.
 
 ### 3.4 Port
 
-The host listens on **8880**. You will type `ws://<laptop LAN IP>:8880` into the
+The host listens on **8800**. You will type `ws://<laptop LAN IP>:8800` into the
 panel controller's inspector fields at M4. The host UI shows the IP and port in
 large text so you can read it without taking the glasses off.
 
@@ -710,7 +710,7 @@ firewall problem.
 
 The first time the host opens its socket, Windows will prompt. Allow it on
 **Private** networks. If you miss the prompt the glasses will connect to nothing
-and time out; the fix is an inbound TCP allow rule for 8880.
+and time out; the fix is an inbound TCP allow rule for 8800.
 
 ---
 

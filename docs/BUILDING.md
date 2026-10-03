@@ -81,7 +81,7 @@ inside the argument array or it gets split on the space and you get
 
 Both builds were exported and run on 2026-10-02:
 
-- ARM64 — runs natively, binds `0.0.0.0:8880`, passes `tools/protocol_test.mjs`.
+- ARM64 — runs natively, binds `0.0.0.0:8800`, passes `tools/protocol_test.mjs`.
 - x86_64 — correct PE machine type, runs (emulated on the ARM64 machine it was
   built on), binds and passes the same test.
 

@@ -184,7 +184,7 @@ Stop after each one and tell me what to test.
 These were agreed after the spec was written. `docs/PROTOCOL.md` and
 `docs/SETUP.md` are the authority where they differ.
 
-- **Port is 8880**, not 8765. Still configurable.
+- **Port is 8800**, not 8765. Still configurable.
 - **Lens lives at `Spectacles/Holo-Display/`**, not `/lens`. Lens scripts go in
   `Spectacles/Holo-Display/Assets/Scripts/`.
 - **Godot is 4.7.2 .NET, `windows_arm64` build.** This is a Snapdragon X Plus

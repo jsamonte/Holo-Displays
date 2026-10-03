@@ -19,8 +19,8 @@ export class HoloDisplays extends BaseScriptComponent {
   hostIp: string = "192.168.1.10"
 
   @input
-  @hint("Host port. 8880 unless the host says it fell forward to another.")
-  hostPort: number = 8880
+  @hint("Host port. 8800 unless the host says it fell forward to another.")
+  hostPort: number = 8800
 
   @input
   @hint("Optional. Left empty, the module is obtained in code.")

@@ -16,8 +16,8 @@ namespace HoloDisplays;
 /// </summary>
 public sealed class StreamServer
 {
-    /// <summary>Default port. SPEC.md said 8765; this project uses 8880.</summary>
-    public const int DefaultPort = 8880;
+    /// <summary>Default port. SPEC.md said 8765; this project uses 8800.</summary>
+    public const int DefaultPort = 8800;
 
     /// <summary>Frames per second per tier.</summary>
     public double FullFps = 15.0;
@@ -59,10 +59,12 @@ public sealed class StreamServer
     /// silently refuses the glasses, because Spectacles connect to the laptop's
     /// IPv4 LAN address.
     ///
-    /// The fallback matters on this machine: Lens Studio holds 127.0.0.1:8880
-    /// while it is open, which is most of the time during lens work. The port
-    /// actually bound is what the UI displays, so whatever it lands on is what
-    /// you type into the lens.
+    /// The fallback matters on a development machine: Lens Studio holds both
+    /// 127.0.0.1:8800 and 127.0.0.1:8880 while it is open, which is most of the
+    /// time during lens work. Binding 0.0.0.0 coexists with that — Windows
+    /// sends loopback to the more specific listener and the LAN address here —
+    /// so the glasses are unaffected. The port actually bound is what the UI
+    /// displays, so whatever it lands on is what you type into the lens.
     /// </summary>
     public Error Start(int port)
     {
@@ -77,7 +79,7 @@ public sealed class StreamServer
                 Port = candidate;
                 Listening = true;
                 if (candidate != port)
-                    Log?.Invoke($"[color=#ffd43b]port {port} was busy (Lens Studio holds 8880 while open) — using {candidate}[/color]");
+                    Log?.Invoke($"[color=#ffd43b]port {port} was busy (Lens Studio holds 8800 and 8880 while open) — using {candidate}[/color]");
                 Log?.Invoke($"listening on 0.0.0.0:{candidate}");
                 return Error.Ok;
             }
