@@ -79,7 +79,7 @@ host/obj/
 *.sln.DotSettings.user
 
 # Godot export output
-host/export/
+#host/export/
 
 # ---------------------------------------------------------------
 # Lens Studio project (Spectacles/Holo-Display/)
